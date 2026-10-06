@@ -777,6 +777,13 @@ apply();run();
 /* ---------- Resume matcher ---------- */
 let sample=null,imgOk=false,pdfOk=false,file=null,ctl=null,blocked=false;
 const mstatus=(t,err)=>{$('mstatus').textContent=t;$('mstatus').classList.toggle('err',!!err)};
+/* Progress bar. The AI calls don't report progress, so each stage creeps toward its ceiling (never reaching it) until the stage really finishes. */
+let prog=0,progT=null,progHide=null;
+function progPaint(){const p=Math.round(prog);$('mfill').style.width=p+'%';$('mpct').textContent=p+'%';$('mprog').setAttribute('aria-valuenow',p)}
+function progSet(p){prog=Math.max(prog,Math.min(100,p));progPaint()}
+function progCrawl(ceil){clearInterval(progT);progT=setInterval(()=>progSet(prog+(ceil-prog)*0.03),300)}
+function progStart(){clearTimeout(progHide);clearInterval(progT);prog=0;$('mprog').hidden=false;progPaint();progSet(2)}
+function progEnd(ok){clearInterval(progT);if(ok){progSet(100);progHide=setTimeout(()=>{$('mprog').hidden=true},1200)}else $('mprog').hidden=true}
 (async()=>{
   try{const r=await fetch(MATCH_API);sample=r.ok&&(await r.json()).ok?sampleApi:null}catch(e){sample=null}
   if(!sample){mstatus('Resume matching is not set up on this site yet.');$('mgo').disabled=true;return}
@@ -871,11 +878,15 @@ $('mgo').addEventListener('click',async()=>{
   if(!sample)return;
   read();
   $('mgo').disabled=true;$('mstop').hidden=false;ctl=new AbortController();
+  let ok=false;
   try{
+    progStart();
     mstatus('Opening your resume…');
     const r=await getResume();
     if(!r.image&&!r.pdf&&r.text.trim().length<80)throw{code:'short'};
+    progSet(8);
     mstatus('Reading your whole resume…');
+    progCrawl(44);
     const src=r.pdf?'the attached PDF':r.image?'the attached image':'the resume text below';
     const p=await sample.json(`You are an experienced university recruiter screening a student's resume for internships.
 Read ${src} completely: education, every job and internship, every project, research, leadership, activities, coursework, skills, certifications, awards and interests. Do not skip sections, and use only what the resume actually says.
@@ -894,9 +905,12 @@ Reply with only this JSON object:
  "keywords": ["25-40 lowercase words or short phrases likely to appear in titles of internships that fit them, e.g. \\"fpga\\", \\"embedded\\", \\"supply chain\\""]}
 ${r.pdf||r.image?'':'\nRESUME:\n'+r.text.slice(0,20000)}`,{signal:ctl.signal,modelTier:'quick',images:r.image||undefined,pdf:r.pdf||undefined});
     showProfile(p);
+    progSet(46);
     const cands=shortlist(p);
     if(!cands.length)throw{code:'none'};
+    progSet(50);
     mstatus(`Comparing ${cands.length} internships against your full resume…`);
+    progCrawl(95);
     const lines=cands.map(x=>{const w=x.sum&&x.sum.l?` | wants: ${x.sum.l.slice(0,160)}`:'';return `${x.id} | ${x.co} | ${x.title} | ${CAT[x.cat]} | ${x.terms.join('/')} | ${(x.locs[0]||'')} | ${x.deg.length?x.deg.join('/'):'any degree'}${w}`}).join('\n');
     const prof=JSON.stringify({summary:p.summary,level:p.level,gradYear:p.gradYear,major:p.major,minor:p.minor,degree:p.degree,gpa:p.gpa,experience:p.experience,projects:p.projects,leadership:p.leadership,coursework:p.coursework,skills:p.skills,awards:p.awards,interests:p.interests,targetRoles:p.targetRoles});
     const rank=await sample.json(`You are a university recruiter matching one student to internships. Judge every listing against the student's FULL background below, the way a hiring manager would.
@@ -920,6 +934,7 @@ Pick the 15 best fits. Reply with only a JSON array, best first:
     matchList=(Array.isArray(rank)?rank:[]).map(m=>({id:Number(m.id),score:Math.max(0,Math.min(100,Math.round(Number(m.score)||0))),why:String(m.why||''),gap:String(m.gap||'')}))
       .filter(m=>L[m.id]&&cands.includes(L[m.id])&&!seen.has(m.id)&&seen.add(m.id));
     if(!matchList.length)throw{code:'none'};
+    ok=true;
     $('tabMatch').hidden=false;setView('match');
     mstatus(`Found ${matchList.length} matches, ranked against your whole resume.`);
     $('tabMatch').scrollIntoView({behavior:'smooth',block:'start'});
@@ -935,6 +950,7 @@ Pick the 15 best fits. Reply with only a JSON array, best first:
     else mstatus('Something went wrong reading the resume. Try again, or paste the text.',true);
     if(['not_granted','sampling_disabled','not_declared','capability_disabled'].includes(c))blocked=true;
   }finally{
+    progEnd(ok);
     $('mgo').disabled=blocked||!sample;
     $('mstop').hidden=true;ctl=null;
   }

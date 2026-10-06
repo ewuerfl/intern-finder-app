@@ -158,6 +158,12 @@ textarea{resize:vertical;min-height:90px;font-size:14px}
 .mactions .ck{font-size:13.5px}
 .status{font-size:14px;color:var(--muted)}
 .status.err{color:var(--bad)}
+.mprog{display:flex;align-items:center;gap:12px}
+.mprog[hidden]{display:none}
+.mprog-track{flex:1;height:8px;border-radius:999px;background:var(--track);overflow:hidden}
+.mprog-fill{height:100%;width:0;border-radius:999px;background:var(--accent);transition:width .3s ease-out}
+.mprog-pct{font:600 13px var(--mono);color:var(--muted);min-width:3.5ch;text-align:right}
+@media (prefers-reduced-motion:reduce){.mprog-fill{transition:none}}
 .profile{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:14px}
 .privacy{font-size:12.5px;color:var(--muted);margin:0}
 .profile{display:block}
@@ -385,6 +391,10 @@ body{margin:0}
       <button class="btn ghost" id="mstop" type="button" hidden>Stop</button>
       <label class="ck"><input type="checkbox" id="mterm" checked> Only the season and year selected above</label>
       <span class="status" id="mstatus" role="status"></span>
+    </div>
+    <div class="mprog" id="mprog" role="progressbar" aria-label="Resume matching progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+      <div class="mprog-track"><div class="mprog-fill" id="mfill"></div></div>
+      <span class="mprog-pct" id="mpct">0%</span>
     </div>
     <div class="profile" id="profile" hidden></div>
     <p class="privacy">Your resume is sent to an AI service through this site's server to find matches. This site doesn't store it.</p>
