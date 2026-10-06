@@ -609,11 +609,17 @@ let gmail=null,INBOX=null,inboxState='idle',inboxErr='';
 const ATS='(greenhouse.io OR myworkday OR myworkdayjobs.com OR lever.co OR ashbyhq.com OR icims.com OR smartrecruiters.com OR successfactors OR taleo.net OR eightfold.ai OR jobvite.com OR workablemail.com OR hire.lever.co OR us.greenhouse-mail.io)';
 const SIGNALS=[
   ['Offer',/\b(offer letter|pleased to offer|extend (you )?an offer|congratulations[^.]{0,40}offer)\b/i],
-  ['Rejected',/(unfortunately|not (be )?moving forward|other candidates|not been selected|decided not to|will not be proceeding|position has been filled|regret to inform)/i],
-  ['Interviewing',/\b(interview|schedule (a|your) (call|time)|availability|next round|phone screen|meet with|superday)\b/i],
+  ['Rejected',/(not (be )?moving forward|move forward with other|other candidates|not been selected|decided not to (move|proceed|pursue)|will not be proceeding|position has been filled|regret to inform|unfortunately[^.]{0,120}(application|candida|position|role|opportunit))/i],
+  ['Interviewing',/\b(interview|phone screen|next round|superday|schedule (a|an|your) (call|chat|interview|time to (talk|speak|chat)))\b/i],
   ['Online assessment',/\b(assessment|hackerrank|codesignal|coding challenge|online test|hirevue|pymetrics|take-home)\b/i],
   ['Received',/(thank you for (applying|your application|your interest)|application (has been )?received|we('ve| have) received your application|application submitted|confirm(ing)? (receipt|your application))/i],
 ];
+// What counts as a real hiring email (vs. job-alert digests, newsletters, bank or insurance mail)
+const ATSRE=/greenhouse|workday|lever\.co|ashbyhq|icims|smartrecruiters|successfactors|taleo|eightfold|jobvite|workable|avature|phenom|brassring|paradox\.ai|oraclecloud|hirevue|codesignal|hackerrank|myworkday|recruit/i;
+const ALERTFROM=/glassdoor|indeed|ziprecruiter|linkedin|monster|careerbuilder|simplyhired|dice\.com|talent\.com|jooble|lensa|wellfound|builtin/i;
+const JUNK=/\b(job alerts?|jobs? (for|matching) you|recommended (jobs|for you)|more jobs in|is hiring\b|apply now|unsubscribe from (this|these) (alerts?|emails?)|paid sponsor|sponsored|newsletter|webinar|card account|account ending|statement|payment (due|received)|premium|policy|coverage|life offer|rewards|% off|limited time|deal|discount)\b/i;
+const HIREWORDS=/\b(your application|thank you for applying|thanks for applying|you applied|application (status|update|received)|candida(te|cy)|requisition|hiring team|recruiter|recruiting team|interview|assessment|offer letter|next steps)\b/i;
+function senderText(s){return (s||'').toLowerCase()}
 const ORDER={Applied:0,Received:0,'Online assessment':1,Interviewing:2,Offer:3,Rejected:3,Withdrew:3};
 function decode(t){const d=document.createElement('textarea');d.innerHTML=t||'';return d.value.replace(/[\u034f\u200c\u00a0]+/g,' ').replace(/\s+/g,' ').trim()}
 function signalOf(text){for(const [n,re] of SIGNALS)if(re.test(text))return n;return ''}
@@ -626,9 +632,9 @@ async function loadInbox(){
   try{
     const apps=Object.entries(APPS);
     const names=[...new Set(apps.map(([k,a])=>a.co).filter(Boolean))];
-    const queries=[`newer_than:120d -category:promotions -category:social from:${ATS}`];
+    const queries=[`newer_than:120d -category:promotions -category:social -category:forums from:${ATS}`];
     for(let i=0;i<names.length;i+=8){
-      queries.push(`newer_than:120d -category:promotions -category:social {${names.slice(i,i+8).map(qName).join(' ')}} (application OR applying OR interview OR assessment OR candidate OR offer OR internship OR unfortunately)`);
+      queries.push(`newer_than:120d -category:promotions -category:social {${names.slice(i,i+8).map(qName).join(' ')}} ("your application" OR "for applying" OR interview OR assessment OR candidate OR "next steps" OR "offer letter")`);
     }
     const seen=new Map();
     for(const q of queries.slice(0,8)){
@@ -640,7 +646,15 @@ async function loadInbox(){
       const msgs=t.messages||[];const first=msgs[0]||{};const last=msgs[msgs.length-1]||first;
       const text=decode([first.subject,...msgs.map(m=>m.snippet)].join(' '));
       const hay=(text+' '+(first.sender||'')).toLowerCase();
-      let match=null;for(const [k,a] of apps){const ck=coKey(a.co||'');if(ck&&hay.includes(ck)){match=k;break}}
+      const from=senderText(msgs.map(m=>m.sender).join(' ')),sig=signalOf(text);
+      const hiring=!!sig||HIREWORDS.test(text);
+      const junk=(JUNK.test(text)||ALERTFROM.test(from))&&!sig;   // digests, newsletters, bank/insurance mail
+      if(junk||!hiring)continue;
+      const fromAts=ATSRE.test(from);
+      // matched only when the company (or its hiring system) actually sent it, not when the name is just mentioned
+      let match=null;for(const [k,a] of apps){const ck=coKey(a.co||'');if(!ck)continue;
+        if(from.includes(ck)||(fromAts&&text.toLowerCase().includes(ck))){match=k;break}}
+      if(!match&&!fromAts&&!sig)continue;   // "other" emails must at least come from a hiring system or clearly be about an application
       items.push({id:t.id,url:t.viewUrl,subject:decode(first.subject||'(no subject)'),from:last.sender||first.sender||'',date:last.date||first.date||'',snippet:decode(last.snippet||first.snippet||''),
         signal:signalOf(text),match,count:t.messageCount||msgs.length});
     }
