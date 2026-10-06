@@ -99,23 +99,51 @@ const sampleApi={
 /* Gmail inbox: Google sign-in in the browser, then the Gmail API (read-only). Needs GOOGLE_CLIENT_ID in config.js. */
 const GmailApi=(()=>{
   if(!CFG.GOOGLE_CLIENT_ID)return null;
-  let token=null,expires=0,client=null;
+  let token=null,expires=0,client=null,silent=false,server=null;
+  const SCOPE='https://www.googleapis.com/auth/gmail.readonly',TK='if-gtok';
   const gsi=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+  const who=()=>acctUser?acctUser.id:'anon';
+  const blob=()=>(acctUser&&acctUser.user_metadata&&acctUser.user_metadata.gmail_rt)||'';
+  function loadTok(){try{const o=JSON.parse(localStorage.getItem(TK)||'null');if(o&&o.u===who()&&o.exp>Date.now()+60000){token=o.t;expires=o.exp}}catch(e){}}
+  function saveTok(){try{localStorage.setItem(TK,JSON.stringify({u:who(),t:token,exp:expires}))}catch(e){}}
+  function clearTok(){token=null;expires=0;try{localStorage.removeItem(TK)}catch(e){}}
+  async function serverOk(){if(server===null){try{const r=await fetch('/api/gmail-token');server=r.ok&&!!(await r.json()).ok}catch(e){server=false}}return server}
+  async function tokenApi(body){const r=await fetch('/api/gmail-token',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...body,client_id:CFG.GOOGLE_CLIENT_ID})});
+    const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||'token');e.code='needs_reauth';throw e}return j}
+  async function refreshSilently(){
+    if(!blob()||!(await serverOk()))return false;
+    try{const j=await tokenApi({action:'refresh',blob:blob()});token=j.access_token;expires=Date.now()+j.expires_in*1000;saveTok();return true}catch(e){return false}
+  }
   async function auth(){
+    if(!token)loadTok();
     if(token&&Date.now()<expires-60000)return token;
+    if(await refreshSilently())return token;
+    if(silent){const e=new Error('auth');e.code='needs_reauth';throw e}   // never pop up Google without a tap
     await gsi;
+    const hint=linkedGmail()||(acctUser&&acctUser.email)||undefined;
+    if(await serverOk()&&SB&&acctUser){   // one-time consent; after this the server keeps you signed in
+      return new Promise((ok,no)=>{
+        const cc=google.accounts.oauth2.initCodeClient({client_id:CFG.GOOGLE_CLIENT_ID,scope:SCOPE,ux_mode:'popup',hint,
+          callback:async r=>{
+            if(r.error){const e=new Error(r.error);e.code='needs_reauth';no(e);return}
+            try{const j=await tokenApi({action:'exchange',code:r.code});token=j.access_token;expires=Date.now()+j.expires_in*1000;saveTok();
+              if(j.blob){const {data}=await SB.auth.updateUser({data:{gmail_rt:j.blob}});if(data&&data.user)acctUser=data.user}
+              ok(token);rememberGmail(token)}catch(e){no(e)}},
+          error_callback:()=>{const e=new Error('closed');e.code='needs_reauth';no(e)}});
+        cc.requestCode();
+      });
+    }
     return new Promise((ok,no)=>{
       client=client||google.accounts.oauth2.initTokenClient({client_id:CFG.GOOGLE_CLIENT_ID,scope:'https://www.googleapis.com/auth/gmail.readonly',callback:()=>{}});
-      client.callback=r=>{if(r.error){const e=new Error(r.error);e.code='needs_reauth';no(e);return}token=r.access_token;expires=Date.now()+r.expires_in*1000;ok(token);rememberGmail(token)};
+      client.callback=r=>{if(r.error){const e=new Error(r.error);e.code='needs_reauth';no(e);return}token=r.access_token;expires=Date.now()+r.expires_in*1000;saveTok();ok(token);rememberGmail(token)};
       client.error_callback=()=>{const e=new Error('closed');e.code='needs_reauth';no(e)};
-      const hint=linkedGmail()||(acctUser&&acctUser.email)||undefined;
-      client.requestAccessToken({prompt:token?'':undefined,hint});
+      client.requestAccessToken({prompt:'',hint});
     });
   }
   async function get(path){
     const t=await auth();
     const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+t}});
-    if(r.status===401){token=null;const e=new Error('auth');e.code='needs_reauth';throw e}
+    if(r.status===401){clearTok();if(await refreshSilently())return get(path);const e=new Error('auth');e.code='needs_reauth';throw e}
     if(!r.ok){const e=new Error('Gmail error '+r.status);e.code='tool_error';throw e}
     return r.json();
   }
@@ -133,11 +161,14 @@ const GmailApi=(()=>{
   }
   async function disconnect(){
     try{if(token&&window.google)google.accounts.oauth2.revoke(token,()=>{})}catch(e){}
-    token=null;expires=0;
-    if(SB&&acctUser){const {data}=await SB.auth.updateUser({data:{gmail:null}});if(data&&data.user)acctUser=data.user}
+    try{if(blob()&&await serverOk())await tokenApi({action:'revoke',blob:blob()})}catch(e){}
+    clearTok();
+    if(SB&&acctUser){const {data}=await SB.auth.updateUser({data:{gmail:null,gmail_rt:null}});if(data&&data.user)acctUser=data.user}
   }
   return {
     disconnect,
+    canCheckQuietly(){if(!token)loadTok();return (token&&Date.now()<expires-60000)||!!blob()},
+    setSilent(v){silent=v},
     async search_threads({query,pageSize}){const r=await get(`threads?q=${encodeURIComponent(query)}&maxResults=${pageSize||30}`);
       return {threads:await pool((r.threads||[]).map(t=>t.id),6,thread)}},
     async get_thread({threadId}){return thread(threadId)}
@@ -159,7 +190,8 @@ document.addEventListener('click',async e=>{
   if(e.target.closest('#gmDisconnect')&&GmailApi){await GmailApi.disconnect();INBOX=null;inboxState='idle';renderInbox()}
 },true);
 document.getElementById('tabInbox').addEventListener('click',()=>setTimeout(()=>{
-  if(GmailApi&&linkedGmail()&&!INBOX&&inboxState!=='loading')loadInbox();
+  // opening the tab only checks automatically when it can do so without a Google popup
+  if(GmailApi&&linkedGmail()&&!INBOX&&inboxState!=='loading'&&GmailApi.canCheckQuietly()){GmailApi.setSilent(true);loadInbox().finally(()=>GmailApi.setSilent(false))}
 },0));
 
 /* Real company logos from Logo.dev (needs LOGO_TOKEN in config.js). Initials show if a logo is missing. */
@@ -641,29 +673,46 @@ async function loadInbox(){
       const p=await gCall('search_threads',{query:q,pageSize:30,view:'THREAD_VIEW_MINIMAL'});
       for(const t of (p.threads||[]))if(!seen.has(t.id))seen.set(t.id,t);
     }
-    const items=[];
-    for(const t of seen.values()){
-      const msgs=t.messages||[];const first=msgs[0]||{};const last=msgs[msgs.length-1]||first;
-      const text=decode([first.subject,...msgs.map(m=>m.snippet)].join(' '));
-      const hay=(text+' '+(first.sender||'')).toLowerCase();
-      const from=senderText(msgs.map(m=>m.sender).join(' ')),sig=signalOf(text);
-      const hiring=!!sig||HIREWORDS.test(text);
-      const junk=(JUNK.test(text)||ALERTFROM.test(from))&&!sig;   // digests, newsletters, bank/insurance mail
-      if(junk||!hiring)continue;
-      const fromAts=ATSRE.test(from);
-      // matched only when the company (or its hiring system) actually sent it, not when the name is just mentioned
-      let match=null;for(const [k,a] of apps){const ck=coKey(a.co||'');if(!ck)continue;
-        if(from.includes(ck)||(fromAts&&text.toLowerCase().includes(ck))){match=k;break}}
-      if(!match&&!fromAts&&!sig)continue;   // "other" emails must at least come from a hiring system or clearly be about an application
-      items.push({id:t.id,url:t.viewUrl,subject:decode(first.subject||'(no subject)'),from:last.sender||first.sender||'',date:last.date||first.date||'',snippet:decode(last.snippet||first.snippet||''),
-        signal:signalOf(text),match,count:t.messageCount||msgs.length});
+    // Gmail groups same-subject emails into one conversation (e.g. eight "Thank you for applying" emails from Amazon),
+    // so look at every message, work out which job it's about, then keep one entry per job.
+    const TSTOP=new Set(['intern','interns','internship','summer','fall','spring','winter','2025','2026','2027','2028','the','and','for','with','usa','program','co-op','coop','undergraduate','graduate','student','team']);
+    const toks=s=>new Set((s||'').toLowerCase().replace(/\(id:?\s*\d+\)/g,' ').split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!TSTOP.has(w)));
+    const emailTitle=s=>{
+      const re=/(?:application|applying|interest|applied)\s+(?:to|for|in)\s+(?:the\s+)?(?:position of\s+)?(.{6,140}?)(?:\s*\(ID:?\s*\d+\))?\s*(?:position|role|job|opening|at\s+[A-Z]|[.!,]|$)/gi;
+      for(const m of (s||'').matchAll(re)){const ti=m[1].trim();
+        if(ti.length>=8&&!/^(us|our|the company|this|your|amazon|google|meta|apple)\b/i.test(ti)&&/[a-z]{3,}\s+[a-z]{3,}/i.test(ti))return ti}
+      return ''};
+    const jobIds=s=>new Set((s||'').match(/\b\d{6,}\b/g)||[]);
+    const fit=(a,et,ids)=>{let sc=0;for(const id of ids)if((a.url||'').includes(id))sc+=100;
+      const aIds=(a.url||'').match(/\d{6,}/g)||[];if(!sc&&ids.size&&aIds.length)return -1;   // both have job numbers and they differ: different job
+      const at=toks(a.title),e=toks(et);if(at.size&&e.size){let n=0;for(const w of at)if(e.has(w))n++;sc+=n/Math.max(at.size,e.size)}return sc};
+    const groups=new Map();
+    for(const th of seen.values()){
+      for(const m of (th.messages||[])){
+        const text=decode((m.subject||'')+' '+(m.snippet||''));
+        const from=senderText(m.sender),sig=signalOf(text);
+        const hiring=!!sig||HIREWORDS.test(text);
+        if(((JUNK.test(text)||ALERTFROM.test(from))&&!sig)||!hiring)continue;
+        const fromAts=ATSRE.test(from);
+        const cands=apps.filter(([k,a])=>{const ck=coKey(a.co||'');return ck&&(from.includes(ck)||(fromAts&&text.toLowerCase().includes(ck)))});
+        if(!cands.length&&!fromAts&&!sig)continue;
+        const et=emailTitle(m.snippet)||emailTitle(m.subject),ids=jobIds(text);
+        let match=null,co=cands.length?cands[0][1].co:'';
+        if(cands.length){
+          const best=cands.map(([k,a])=>[k,fit(a,et,ids)]).sort((x,y)=>y[1]-x[1])[0];
+          if(best[1]>=100||best[1]>=0.5||(!et&&cands.length===1))match=best[0];   // job ID or most of the title matches
+        }
+        const key=match||(co?co.toLowerCase()+'|'+(et.toLowerCase()||'?'):'t|'+th.id+'|'+(m.subject||''));
+        const it={id:th.id,url:th.viewUrl,subject:decode(m.subject||'(no subject)'),from:m.sender||'',date:m.date||'',snippet:decode(m.snippet||''),
+          signal:sig,match,co:match?'':co,emailTitle:et,count:1};
+        const g=groups.get(key);
+        if(!g){groups.set(key,it);continue}
+        g.count++;
+        const rank=s=>s?ORDER[s]+1:0;
+        if(rank(sig)>rank(g.signal)||(rank(sig)===rank(g.signal)&&(it.date||'')>(g.date||''))){it.count=g.count;groups.set(key,it)}
+      }
     }
-    // search previews only include a thread's oldest messages: read matched threads in full for the latest reply
-    for(const it of items.filter(i=>i.match&&i.count>1).slice(0,15)){
-      try{const th=await gCall('get_thread',{threadId:it.id,messageFormat:'MINIMAL'});const ms=th.messages||[];const l=ms[ms.length-1];
-        if(l){const all=decode(ms.map(m=>(m.subject||'')+' '+(m.snippet||'')).join(' '));it.snippet=decode(l.snippet||it.snippet);it.date=l.date||it.date;it.from=l.sender||it.from;
-          const lastSig=signalOf(decode((l.subject||'')+' '+(l.snippet||'')));it.signal=lastSig||signalOf(all)}}catch(e){}
-    }
+    const items=[...groups.values()];
     items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     INBOX=items;inboxState='ok';
   }catch(e){
@@ -685,15 +734,15 @@ function renderInbox(){
   if(inboxState==='loading'){$('count').innerHTML='Inbox · checking Gmail…';$('list').innerHTML='<div class="empty">Searching your email for recruiting messages…</div>';return}
   if(inboxState==='error'){$('count').innerHTML='Inbox';$('list').innerHTML=`<div class="empty">${esc(inboxErr)}<br><br>${btn}</div>`;return}
   if(!INBOX){$('count').innerHTML='Inbox';$('list').innerHTML=`${typeof inboxBar==='function'?inboxBar():''}<div class="empty">Find replies from companies you applied to. Sign in with Google and this searches your Gmail (read-only) for recruiting emails from the last 4 months and matches them to <b>My applications</b>. Nothing from your email leaves your browser.<br><br>${btn}</div>`;return}
-  const matched=INBOX.filter(i=>i.match),other=INBOX.filter(i=>!i.match);
+  const matched=INBOX.filter(i=>i.match||i.co),other=INBOX.filter(i=>!i.match&&!i.co);
   $('count').innerHTML=`<b>${INBOX.length}</b> recruiting email${INBOX.length===1?'':'s'} · ${matched.length} matched to your applications`;
   const row=i=>{
     const a=i.match&&APPS[i.match];
     const sugg=a&&i.signal&&i.signal!=='Received'&&i.signal!==a.status&&(ORDER[i.signal]>=ORDER[a.status]||i.signal==='Rejected');
     const sig=i.signal?`<span class="tag ${i.signal==='Rejected'?'warn':i.signal==='Received'?'':'good'}">${esc(i.signal==='Received'?'Application received':i.signal)}</span>`:'';
     return `<div class="mail">
-      <div class="mail-top"><b>${esc(a?a.co:i.from.replace(/<.*>/,'').trim())}</b>${a?`<span class="tag term">${esc(a.title)}</span>`:''}${sig}<span class="mail-date">${i.date?new Date(i.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''}</span></div>
-      <div class="mail-subj">${esc(i.subject)}${i.count>1?` <span class="mail-n">(${i.count})</span>`:''}</div>
+      <div class="mail-top"><b>${esc(a?a.co:i.co||i.from.replace(/<.*>/,'').trim())}</b>${a?`<span class="tag term">${esc(a.title)}</span>`:i.emailTitle?`<span class="tag">${esc(i.emailTitle)}</span>`:''}${!a&&i.co?'<span class="tag warn">Not in My applications</span>':''}${sig}<span class="mail-date">${i.date?new Date(i.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''}</span></div>
+      <div class="mail-subj">${esc(i.subject)}${i.count>1?` <span class="mail-n">(${i.count} emails)</span>`:''}</div>
       <div class="mail-snip">${esc(i.snippet.slice(0,220))}</div>
       <div class="mail-act"><a href="${esc(i.url)}" target="_blank" rel="noopener">Open in Gmail ↗</a>
         ${sugg?`<button type="button" class="copy mail-apply" data-key="${i.match}" data-status="${esc(i.signal)}">Set status to ${esc(i.signal)}</button>`:a?`<span class="mail-cur">Status: ${esc(a.status)}</span>`:''}</div>
