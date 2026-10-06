@@ -15,9 +15,9 @@ SENIOR = re.compile(r'\b(senior|sr\.|staff|principal|director|head of|vice presi
 NOW = time.time()
 YEAR = datetime.date.today().year
 
-def get(url, data=None, timeout=20):
+def get(url, data=None, timeout=20, extra=None):
     req = urllib.request.Request(url, data=json.dumps(data).encode() if data is not None else None,
-                                 headers={**UA, **({'Content-Type': 'application/json'} if data is not None else {})})
+                                 headers={**UA, **({'Content-Type': 'application/json'} if data is not None else {}), **(extra or {})})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode('utf-8', 'replace'))
 
@@ -79,7 +79,8 @@ def ashby(org, co):
 def wd(spec, co):
     host, tenant, site = spec.split('|')
     for offset in (0, 20, 40):
-        j = get(f'https://{host}/wday/cxs/{tenant}/{site}/jobs', {'appliedFacets': {}, 'limit': 20, 'offset': offset, 'searchText': 'intern'})
+        j = get(f'https://{host}/wday/cxs/{tenant}/{site}/jobs', {'appliedFacets': {}, 'limit': 20, 'offset': offset, 'searchText': 'intern'},
+                extra={'Origin': f'https://{host}', 'Referer': f'https://{host}/{site}'})
         posts = j.get('jobPostings', [])
         for x in posts:
             yield co, x.get('title', ''), x.get('locationsText', ''), f"https://{host}/en-US/{site}{x.get('externalPath', '')}", workday_posted(x.get('postedOn'))
@@ -92,7 +93,14 @@ def sr(company, co):
         loc = ', '.join(v for v in (l.get('city'), l.get('region'), l.get('country', '').upper()) if v)
         yield co, x.get('name', ''), loc, f"https://jobs.smartrecruiters.com/{company}/{x.get('id')}", ts(x.get('releasedDate'))
 
-KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr}
+def bamboo(slug, co):
+    j = get(f'https://{slug}.bamboohr.com/careers/list')
+    for x in j.get('result', []) if isinstance(j, dict) else []:
+        l = x.get('location') or {}
+        loc = ', '.join(v for v in (l.get('city'), l.get('state')) if v) if isinstance(l, dict) else str(l or '')
+        yield co, x.get('jobOpeningName', ''), loc, f"https://{slug}.bamboohr.com/careers/{x.get('id')}", NOW - 3 * 86400
+
+KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo}
 
 import threading
 WD_SLOTS = threading.Semaphore(10)   # Workday rate-limits hard; read at most 6 Workday boards at a time

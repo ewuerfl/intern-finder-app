@@ -1,0 +1,37 @@
+name: Daily company discovery
+on:
+  schedule:
+    - cron: '43 7 * * *'    # once a day (~3:43 AM Eastern)
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check ~40,000 company job boards for internships
+        working-directory: intern-finder/pipeline
+        run: |
+          python3 boards.py
+          python3 discover.py
+      - name: Save the list
+        timeout-minutes: 6
+        run: |
+          git config user.name "intern-finder-bot"
+          git config user.email "intern-finder-bot@users.noreply.github.com"
+          git add intern-finder/pipeline/discovered.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -q -m "Discovery $(date -u +%F)"
+          git checkout -q -- . 2>/dev/null || true
+          for i in 1 2 3; do
+            if timeout 60 git pull -q --rebase origin main && timeout 90 git push -q origin HEAD:main; then echo "Pushed"; exit 0; fi
+            git rebase --abort 2>/dev/null || true; sleep $((i*10))
+          done
+          echo "::error title=Save failed::could not push discovered.json"; exit 1

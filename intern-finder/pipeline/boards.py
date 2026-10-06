@@ -25,6 +25,10 @@ def main():
         if line.startswith('#') or not line.strip(): continue
         kind, ident, co = line.rstrip('\n').split('\t')
         names[(kind, ident)][co] += 1000   # curated name wins
+    # companies found by the daily discovery sweep (discover.py)
+    if os.path.exists('discovered.json'):
+        for kind, ident, co, seen in json.load(open('discovered.json')):
+            names[(kind, ident)][co] += 1
     boards = sorted([k[0], k[1], v.most_common(1)[0][0]] for k, v in names.items())
     json.dump(boards, open('boards.json', 'w'), indent=0)
     print('boards:', len(boards), dict(collections.Counter(b[0] for b in boards)))
