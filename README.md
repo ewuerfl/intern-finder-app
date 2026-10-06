@@ -2,6 +2,8 @@
 
 A web app for finding internships across every major, with a built-in application tracker. It installs on phones and laptops like a native app (PWA).
 
+Live: https://intern-finder-xi.vercel.app/
+
 ## What it does
 
 - **Search thousands of open internships** with company logos, ratings and AI-written summaries of each posting
