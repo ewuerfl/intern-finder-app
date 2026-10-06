@@ -50,6 +50,40 @@ for r in L:
     _seen.add(k); _keep.append(r)
 L[:] = _keep
 
+# Same job posting reached through different links (e.g. amazon.jobs/en/jobs/123/title vs amazon.jobs/jobs/123/apply):
+# merge into one entry, keeping pay, locations and the earliest date from all copies.
+def _job_key(u):
+    p = urllib.parse.urlparse(u.strip()); h = (p.hostname or '').lower().replace('www.', '')
+    q = urllib.parse.parse_qs(p.query)
+    for k in ('gh_jid', 'jobId', 'jobid', 'job_id', 'token', 'id', 'jid'):
+        if k in q and re.search(r'\d{4,}', q[k][0]):
+            return (h.split('.')[-2] if '.' in h else h, re.sub(r'\D', '', q[k][0]))
+    ids = re.findall(r'(\d{5,})', p.path.lower())
+    if ids: return (h, ids[-1])
+    return (h, p.path.rstrip('/').lower())
+_groups = collections.OrderedDict()
+for r in L:
+    _groups.setdefault(_job_key(r[8]), []).append(r)
+_merged = []
+for rows in _groups.values():
+    if len(rows) == 1:
+        _merged.append(rows[0]); continue
+    best = max(rows, key=lambda r: (r[8] in S, bool(r[9]), '/apply' not in r[8], len(r[1])))
+    for r in rows:
+        if r is best: continue
+        if not best[9] and r[9]: best[9] = r[9]
+        for loc in r[4]:
+            if loc not in best[4]: best[4].append(loc)
+        for term in r[3]:
+            if term not in best[3]: best[3].append(term)
+        for dg in r[5]:
+            if dg not in best[5]: best[5].append(dg)
+        if r[7] and (not best[7] or r[7] < best[7]): best[7] = r[7]
+        if r[8] in S and best[8] not in S: S[best[8]] = S[r[8]]
+    _merged.append(best)
+print(f'merged {len(L) - len(_merged)} duplicate postings that share a job link')
+L[:] = _merged
+
 urls = collections.defaultdict(list)
 for r in L:
     r[0] = NAME.get(r[0], r[0])
