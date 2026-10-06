@@ -17,17 +17,17 @@ jobs:
         with:
           python-version: '3.12'
       - name: Rebuild listings
-        run: bash pipeline/run.sh
+        run: bash intern-finder/pipeline/run.sh
       - name: Commit new data
         timeout-minutes: 6
         run: |
           git config user.name "intern-finder-bot"
           git config user.email "intern-finder-bot@users.noreply.github.com"
-          git add public/data.json
+          git add intern-finder/public/data.json
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -q -m "Refresh $(date -u +%F\ %H:%M) UTC"
           git checkout -q -- . 2>/dev/null || true
-          git clean -qfd pipeline 2>/dev/null || true
+          git clean -qfd intern-finder/pipeline 2>/dev/null || true
           for i in 1 2 3; do
             t0=$(date +%s)
             if ! out=$(timeout 60 git pull -q --rebase origin main 2>&1); then step="pull (exit $?, $(( $(date +%s)-t0 ))s)"

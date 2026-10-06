@@ -35,11 +35,12 @@ The Gmail inbox feature is not open to everyone. Google requires an app that rea
 ## Repo layout
 
 ```
-public/      the website (index.html, app.js, data.json, PWA files)
-api/         serverless resume-matching function
-pipeline/    scripts that rebuild the listings
-supabase/    database schema for accounts
-.github/     hourly refresh workflow
+intern-finder/
+  public/      the website (index.html, app.js, data.json, PWA files)
+  api/         serverless resume-matching function
+  pipeline/    scripts that rebuild the listings
+  supabase/    database schema for accounts
+.github/       hourly refresh workflow
 ```
 
 ## License
