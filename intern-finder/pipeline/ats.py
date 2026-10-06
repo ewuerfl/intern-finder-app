@@ -100,7 +100,50 @@ def bamboo(slug, co):
         loc = ', '.join(v for v in (l.get('city'), l.get('state')) if v) if isinstance(l, dict) else str(l or '')
         yield co, x.get('jobOpeningName', ''), loc, f"https://{slug}.bamboohr.com/careers/{x.get('id')}", NOW - 3 * 86400
 
-KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo}
+def workable(acct, co):
+    j = get(f'https://apply.workable.com/api/v1/widget/accounts/{acct}')
+    name = (j.get('name') if isinstance(j, dict) else None) or co
+    for x in (j.get('jobs') or []) if isinstance(j, dict) else []:
+        loc = ', '.join(v for v in (x.get('city'), x.get('state'), x.get('country')) if v)
+        yield name, x.get('title', ''), loc, x.get('url') or x.get('application_url') or '', ts(x.get('published_on') or x.get('created_at'))
+
+def recruitee(slug, co):
+    j = get(f'https://{slug}.recruitee.com/api/offers/')
+    for x in (j.get('offers') or []) if isinstance(j, dict) else []:
+        loc = ', '.join(v for v in (x.get('city'), x.get('country')) if v) or x.get('location') or ''
+        yield x.get('company_name') or co, x.get('title', ''), loc, x.get('careers_url') or x.get('url') or '', ts(x.get('published_at'))
+
+def breezy(slug, co):
+    j = get(f'https://{slug}.breezy.hr/json')
+    for x in j if isinstance(j, list) else []:
+        loc = (x.get('location') or {}).get('name', '') if isinstance(x.get('location'), dict) else ''
+        yield co, x.get('name', ''), loc, x.get('url', ''), ts(x.get('published_date'))
+
+def rippling(slug, co):
+    try:
+        j = get(f'https://api.rippling.com/platform/api/ats/v1/board/{slug}/jobs')
+        rows = j if isinstance(j, list) else []
+    except urllib.error.HTTPError:
+        j = get(f'https://ats.rippling.com/api/v2/board/{slug}/jobs?page=0&pageSize=100')
+        rows = (j.get('items') or []) if isinstance(j, dict) else []
+    for x in rows:
+        loc = (x.get('workLocation') or {}).get('label', '') if isinstance(x.get('workLocation'), dict) else \
+              ', '.join(l.get('name', '') for l in (x.get('locations') or []) if isinstance(l, dict))
+        url = x.get('url') or f"https://ats.rippling.com/{slug}/jobs/{x.get('uuid') or x.get('id')}"
+        yield co, x.get('name', ''), loc, url, NOW - 3 * 86400
+
+def oracle(spec, co):
+    host, site = spec.split('|')
+    q = (f'https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true'
+         f'&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber={site},limit=100,keyword=intern,sortBy=POSTING_DATES_DESC')
+    j = get(q)
+    for blk in (j.get('items') or []) if isinstance(j, dict) else []:
+        for x in blk.get('requisitionList') or []:
+            yield co, x.get('Title', ''), x.get('PrimaryLocation', ''), \
+                  f"https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{x.get('Id')}", ts(x.get('PostedDate'))
+
+KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
+         'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle}
 
 import threading
 WD_SLOTS = threading.Semaphore(10)   # Workday rate-limits hard; read at most 6 Workday boards at a time

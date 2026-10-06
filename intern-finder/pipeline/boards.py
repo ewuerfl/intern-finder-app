@@ -13,6 +13,14 @@ def board_of(url):
         if parts and re.match(r'^[a-z]{2}-[A-Z]{2}$', parts[0]): parts = parts[1:]
         if parts and parts[0] not in ('job', 'details', 'wday', 'jobs'): return ('wd', f"{h}|{h.split('.')[0]}|{parts[0]}")
     if h == 'jobs.smartrecruiters.com' and parts: return ('sr', parts[0])
+    if h == 'apply.workable.com' and parts and parts[0] not in ('api', 'j'): return ('workable', parts[0])
+    if h.endswith('.recruitee.com'): return ('recruitee', h.split('.')[0])
+    if h.endswith('.breezy.hr'): return ('breezy', h.split('.')[0])
+    if h.endswith('.bamboohr.com'): return ('bamboo', h.split('.')[0])
+    if h == 'ats.rippling.com' and parts: return ('rippling', parts[0])
+    if h.endswith('oraclecloud.com') and 'sites' in parts:
+        i = parts.index('sites')
+        if i + 1 < len(parts): return ('oracle', f"{h}|{parts[i+1]}")
     return None
 
 def main():
