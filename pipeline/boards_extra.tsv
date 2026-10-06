@@ -1,0 +1,203 @@
+# kind	id	company     (extra job boards to sweep; kinds: gh lever ashby wd sr; wd id = host|tenant|site)
+gh	partnershipforpublicservice	Partnership for Public Service
+gh	themichaeljfoxfoundation	The Michael J. Fox Foundation
+gh	mosinternships	Museum of Science
+gh	wikimedia	Wikimedia Foundation
+gh	convene	Convene Hospitality Group
+gh	precisionmedicinegroup	Precision Medicine Group
+gh	precisionaq	Precision AQ
+gh	mavenclinic	Maven Clinic
+gh	putnamassociatesllc	Putnam Associates
+gh	samsungresearchamericainternship	Samsung Research America
+gh	nationalpublicradioinc	NPR
+gh	cpm	Chicago Public Media
+gh	nflcareers	National Football League
+gh	riotgamesup	Riot Games
+gh	philadelphiaeagles	Philadelphia Eagles
+gh	worldsurfleague	World Surf League
+gh	athleticsbusinessops	Athletics
+gh	fccincinnati	FC Cincinnati
+gh	fifa-hb-intern-programme	FIFA Host Broadcast
+gh	langanengineeringandenvironmentalservicesllc	Langan
+gh	gallup	Gallup
+gh	energyhub	EnergyHub
+gh	breakthroughenergy7	Breakthrough Energy
+gh	wri	World Resources Institute
+gh	climatecabinet	Climate Cabinet
+gh	schoolmint	SchoolMint
+gh	sponsorsforeducationalopportunity	SEO (Sponsors for Educational Opportunity)
+gh	southernpovertylawcenter	Southern Poverty Law Center
+gh	acluinternships	ACLU
+gh	aclu	ACLU
+gh	aclunc	ACLU of Northern California
+gh	afcvolunteers	Advocates for Children
+gh	democracyforward	Democracy Forward
+gh	casetify	CASETiFY
+gh	hasbro	Hasbro
+gh	powerdigitalmarketing	Power Digital
+gh	sothebys	Sotheby's
+gh	authenticbrandsgroup	Authentic Brands Group
+gh	caseagency	CASE Agency
+gh	fairlife	fairlife
+gh	spainternships	SPA Studios
+gh	sonyinteractiveentertainmentglobal	PlayStation
+gh	2kearlycareers	2K
+gh	hpiq	HP IQ
+gh	thenuclearcompany	The Nuclear Company
+gh	vardaspace	Varda Space
+gh	muonspace	Muon Space
+gh	mavensecuritiesholdingltd	Maven Securities
+gh	airbnb	Airbnb
+gh	stripe	Stripe
+gh	dropbox	Dropbox
+gh	pinterest	Pinterest
+gh	reddit	Reddit
+gh	discord	Discord
+gh	robinhood	Robinhood
+gh	coinbase	Coinbase
+gh	duolingo	Duolingo
+gh	squarespace	Squarespace
+gh	warbyparker	Warby Parker
+gh	lyft	Lyft
+gh	instacart	Instacart
+gh	cloudflare	Cloudflare
+gh	datadog	Datadog
+gh	mongodb	MongoDB
+gh	twitch	Twitch
+gh	roblox	Roblox
+gh	asana	Asana
+gh	gitlab	GitLab
+gh	samsara	Samsara
+gh	anthropic	Anthropic
+gh	scaleai	Scale AI
+gh	databricks	Databricks
+gh	andurilindustries	Anduril
+gh	spacex	SpaceX
+gh	figureai	Figure AI
+gh	nuro	Nuro
+gh	waymo	Waymo
+gh	janestreet	Jane Street
+gh	hudsonrivertrading	Hudson River Trading
+gh	imc	IMC Trading
+gh	drweng	DRW
+gh	point72	Point72
+gh	blackstone	Blackstone
+gh	nytimes	The New York Times
+gh	vox	Vox Media
+gh	axios	Axios
+gh	theathletic	The Athletic
+gh	buzzfeed	BuzzFeed
+gh	conde	Condé Nast
+gh	glossier	Glossier
+gh	allbirds	Allbirds
+gh	peloton	Peloton
+gh	sweetgreen	Sweetgreen
+gh	equinox	Equinox
+gh	sonos	Sonos
+gh	nba	NBA
+gh	mlb	MLB
+gh	nhl	NHL
+gh	mls	MLS
+gh	wnba	WNBA
+gh	nascar	NASCAR
+gh	ufc	UFC
+gh	livenation	Live Nation
+gh	universalmusicgroup	Universal Music Group
+gh	warnermusicgroup	Warner Music Group
+gh	sonymusic	Sony Music
+gh	spotify	Spotify
+gh	soundcloud	SoundCloud
+gh	nwf	National Wildlife Federation
+gh	tnc	The Nature Conservancy
+gh	edf	Environmental Defense Fund
+gh	oceana	Oceana
+gh	teachforamerica	Teach For America
+gh	khanacademy	Khan Academy
+gh	codeorg	Code.org
+gh	brookings	Brookings Institution
+gh	urbaninstitute	Urban Institute
+gh	cap	Center for American Progress
+gh	hrw	Human Rights Watch
+gh	humanrightswatch	Human Rights Watch
+gh	unitedway	United Way
+gh	redcross	American Red Cross
+gh	feedingamerica	Feeding America
+lever	immuta	Immuta
+lever	protective	Protective Life
+lever	Virtus	Virtus
+lever	moorecolson	Moore Colson
+lever	nationaljournal	National Journal
+lever	hcvt	HCVT
+lever	brooksrunning	Brooks Running
+lever	calstart	CALSTART
+lever	tri	Toyota Research Institute
+lever	felix-construction	Felix Construction
+lever	brightedge	BrightEdge
+lever	openx	OpenX
+lever	palantir	Palantir
+lever	plaid	Plaid
+lever	spotify	Spotify
+lever	netflix	Netflix
+lever	wealthfront	Wealthfront
+lever	attentive	Attentive
+lever	shieldai	Shield AI
+lever	zoox	Zoox
+lever	aurora	Aurora
+lever	matchgroup	Match Group
+lever	eventbrite	Eventbrite
+ashby	notion	Notion
+ashby	elevenlabs	ElevenLabs
+ashby	saronic	Saronic
+ashby	ibotta	Ibotta
+ashby	airwallex	Airwallex
+ashby	zip	Zip
+ashby	halter	Halter
+ashby	overviewenergy	Overview Energy
+ashby	rivianvw.tech	Rivian and VW Group Technologies
+ashby	openai	OpenAI
+ashby	ramp	Ramp
+ashby	linear	Linear
+ashby	vanta	Vanta
+ashby	cursor	Cursor
+ashby	perplexity	Perplexity
+ashby	harvey	Harvey
+wd	marinabaysands.wd102.myworkdayjobs.com|marinabaysands|External	Marina Bay Sands
+wd	mymvw.wd5.myworkdayjobs.com|mymvw|MVW	Marriott Vacations Worldwide
+wd	mymvw.wd5.myworkdayjobs.com|mymvw|HVOCareers	Hyatt Vacation Ownership
+wd	choicehotels.wd5.myworkdayjobs.com|choicehotels|HotelExternal	Choice Hotels
+wd	fourseasons.wd3.myworkdayjobs.com|fourseasons|search	Four Seasons
+wd	adventhealth.wd12.myworkdayjobs.com|adventhealth|AH_External_Career_Site	AdventHealth
+wd	wvumedicine.wd1.myworkdayjobs.com|wvumedicine|WVUH	WVU Medicine
+wd	saintlukes.wd1.myworkdayjobs.com|saintlukes|saintlukeshealthcareers	Saint Luke's Health System
+wd	huntingtonhospital.wd5.myworkdayjobs.com|huntingtonhospital|huntingtonhospitalcareers	Huntington Hospital
+wd	halifaxhealth.wd12.myworkdayjobs.com|halifaxhealth|HalifaxHealth	Halifax Health
+wd	seh.wd1.myworkdayjobs.com|seh|SoutheastHealth	SoutheastHEALTH
+wd	avera.wd5.myworkdayjobs.com|avera|avera-careers	Avera
+wd	sluhn.wd1.myworkdayjobs.com|sluhn|Nursing-Recruiting	St. Luke's University Health Network
+wd	cbrands.wd5.myworkdayjobs.com|cbrands|CBI_External_Careers	Constellation Brands
+wd	itron.wd5.myworkdayjobs.com|itron|Early_Careers	Itron
+wd	fticonsulting.wd108.myworkdayjobs.com|fticonsulting|FTIConsultingCareers	FTI Consulting
+wd	transamerica.wd5.myworkdayjobs.com|transamerica|US	Transamerica
+wd	salesforce.wd12.myworkdayjobs.com|salesforce|Futureforce_Internships	Salesforce
+wd	kauffman.wd1.myworkdayjobs.com|kauffman|External	Kauffman Foundation
+wd	bristolmyerssquibb.wd5.myworkdayjobs.com|bristolmyerssquibb|bms	Bristol Myers Squibb
+wd	guardianlife.wd5.myworkdayjobs.com|guardianlife|Guardian-Life-Careers	Guardian Life
+wd	polaris.wd5.myworkdayjobs.com|polaris|PolarisJobs	Polaris
+wd	disney.wd5.myworkdayjobs.com|disney|disneycareer	Disney
+wd	fox.wd1.myworkdayjobs.com|fox|Domestic	FOX Corporation
+wd	iheartmedia.wd5.myworkdayjobs.com|iheartmedia|iHM_Internships_Site	iHeartMedia
+wd	nclh.wd108.myworkdayjobs.com|nclh|NCLH_Careers	Norwegian Cruise Line Holdings
+wd	caa.wd1.myworkdayjobs.com|caa|Careers	CAA
+wd	livenation.wd1.myworkdayjobs.com|livenation|RNExternalSite	Roc Nation
+wd	benchmark.wd1.myworkdayjobs.com|benchmark|PGH_Careers	Benchmark Pyramid
+sr	AbbVie	AbbVie
+sr	WesternDigital	Western Digital
+sr	LLNL	Lawrence Livermore National Lab
+sr	CityOfNewYork	City of New York
+sr	RolandBerger	Roland Berger
+sr	Continental	Continental
+sr	AECOM2	AECOM
+sr	Visa	Visa
+sr	Bosch	Bosch
+sr	IKEA	IKEA
+sr	McDonaldsCorporation	McDonald's

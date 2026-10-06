@@ -1,0 +1,39 @@
+name: Hourly refresh
+on:
+  schedule:
+    - cron: '17 * * * *'    # every hour at :17
+  workflow_dispatch:         # lets you run it by hand from the Actions tab
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history (repo is small); avoids slow shallow-clone pushes
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rebuild listings
+        run: bash pipeline/run.sh
+      - name: Commit new data
+        timeout-minutes: 6
+        run: |
+          git config user.name "intern-finder-bot"
+          git config user.email "intern-finder-bot@users.noreply.github.com"
+          git add public/data.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -q -m "Refresh $(date -u +%F\ %H:%M) UTC"
+          git checkout -q -- . 2>/dev/null || true
+          git clean -qfd pipeline 2>/dev/null || true
+          for i in 1 2 3; do
+            t0=$(date +%s)
+            if ! out=$(timeout 60 git pull -q --rebase origin main 2>&1); then step="pull (exit $?, $(( $(date +%s)-t0 ))s)"
+            elif ! out=$(timeout 90 git push -q origin HEAD:main 2>&1); then step="push (exit $?, $(( $(date +%s)-t0 ))s)"
+            else echo "Pushed in $(( $(date +%s)-t0 ))s"; exit 0; fi
+            echo "Attempt $i: $step failed: $out"; git rebase --abort 2>/dev/null || true; sleep $((i*10))
+          done
+          echo "::error title=Save failed at $step::$(echo "$out" | tr '\n' ' ' | cut -c1-800)"
+          exit 1

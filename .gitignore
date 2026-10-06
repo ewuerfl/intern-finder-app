@@ -1,0 +1,12 @@
+pipeline/s27dev/
+pipeline/mehek-builds_Summer2027-Internships/
+pipeline/r_*/
+pipeline/extra.json
+pipeline/extra2.json
+pipeline/all.json
+pipeline/app/
+__pycache__/
+.vercel
+.DS_Store
+pipeline/boards.json
+pipeline/ats.json
