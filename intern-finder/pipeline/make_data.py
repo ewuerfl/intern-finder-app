@@ -170,9 +170,11 @@ def _gone(u):
             return True
         return False
     except urllib.error.HTTPError as e:
-        return True if e.code in (404, 410) else None
-    except Exception:
-        return None
+        if e.code in (404, 410): return True
+        WHY[u] = f'HTTP {e.code}'; return None
+    except Exception as e:
+        WHY[u] = type(e).__name__; return None
+WHY = {}
 
 if os.environ.get('GITHUB_ACTIONS'):
     slot = datetime.datetime.utcnow().hour // 3 % 8
@@ -191,6 +193,10 @@ if os.environ.get('GITHUB_ACTIONS'):
     msg = (f'{len(todo)} links to check ({len(live)} jobs live in feeds): {res["True"]} removed, {res["False"]} ok, '
            f'{res["None"]} unclear, {res["skip"]} left for next run; {len(dead)} known dead; {_time.time()-t0:.0f}s')
     print('link check: ' + msg)
+    why = collections.Counter((urllib.parse.urlparse(u).hostname or '').split('.', 1)[-1] + ' ' + w for u, w in WHY.items())
+    print('::notice title=Link check unclear::' + '; '.join(f'{k} x{v}' for k, v in why.most_common(10)))
+    dbg = [r[8] for r in L if 'centene' in r[8]][:6]
+    print('::notice title=Link check centene::' + ' | '.join(f'{u[-30:]}={_gone(u)}/{WHY.get(u,"")}' for u in dbg))
     print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
 
 before = len(L); counts = collections.Counter()
