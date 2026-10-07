@@ -155,7 +155,10 @@ prev_urls = {r[8] for r in prev.get('listings', [])} if prev else set()
 added = [r[8] for r in L if prev_urls and r[8] not in prev_urls]
 used = {r[8] for r in L}
 summ = {u: v for u, v in S.items() if u in used}
-if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)) and prev.get('summaries') == summ and prev.get('domains') == domains and (prev.get('dead') or {}) == dead:
+from f500 import which as _f500
+f500 = {co: w for co in sorted({r[0] for r in L}) if (w := _f500(co))}
+print(f'Fortune 500: {sum(1 for r in L if r[0] in f500)} jobs at {len(set(f500.values()))} companies')
+if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)) and prev.get('summaries') == summ and prev.get('domains') == domains and (prev.get('dead') or {}) == dead and prev.get('f500') == f500:
     print('No listing changes; data.json left as is')
     raise SystemExit(0)
 
@@ -163,7 +166,7 @@ if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)
 dumps = lambda o: json.dumps(o, separators=(',', ':'), ensure_ascii=False)
 os.makedirs('../public', exist_ok=True)
 with open(OUT, 'w') as f:
-    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"domains":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(domains), dumps(summ)))
+    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"domains":%s,\n"f500":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(domains), dumps(f500), dumps(summ)))
     f.write(',\n'.join(dumps(r) for r in L))
     f.write('\n]}\n')
 print(f'{len(added)} new since last update; {len(L)} listings, {len(urls)} companies, {len(domains)} with a known domain, '

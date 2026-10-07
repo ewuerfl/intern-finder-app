@@ -259,7 +259,7 @@ const MAJORS=[
 ];
 const CAT=Object.fromEntries(FIELDS.flatMap(g=>g[1]));
 const SUM=window.SUMMARIES||{};
-const L=window.LISTINGS.map((r,i)=>({id:i,co:r[0],title:r[1],cats:r[2],cat:r[2][0],terms:r[3],locs:r[4],deg:r[5],sp:r[6],t:r[7],url:r[8],pay:r[9]||'',prog:r[10]==='p',about:r[11]||'',rt:r[12]||0,brand:r[13]||0,hr:r[14]||null,unpaid:r[15]==='u',sum:SUM[r[8]]||null,
+const L=window.LISTINGS.map((r,i)=>({id:i,co:r[0],title:r[1],cats:r[2],cat:r[2][0],terms:r[3],locs:r[4],deg:r[5],sp:r[6],t:r[7],url:r[8],pay:r[9]||'',prog:r[10]==='p',about:r[11]||'',rt:r[12]||0,brand:r[13]||0,hr:r[14]||null,unpaid:r[15]==='u',f500:!!(window.F500||{})[r[0]],sum:SUM[r[8]]||null,
   hay:(r[0]+' '+r[1]+' '+r[4].join(' ')).toLowerCase()}));
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -274,18 +274,18 @@ const DEG=["Bachelor's","Master's","PhD","Associate's"];
 $('degrees').insertAdjacentHTML('beforeend',DEG.map((d,i)=>`<label class="ck"><input type="checkbox" id="deg${i}" value="${d}"> ${d}</label>`).join(''));
 
 const US=/(,\s?[A-Z]{2}$)|United States|USA|\bUS\b|Remote in USA/;
-let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[],paidonly:true,known:false};
+let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[],paidonly:true,known:false,f500:false};
 try{const s=localStorage.getItem('if-sort');if(s)state.sort=s}catch(e){} // every visit starts with a clear search; only the sort order is remembered
 if(state.field&&!CAT[state.field])state.field='';if(state.major&&!MAJ[state.major])state.major='';
 
 function apply(){
   $('major').value=state.major;$('field').value=state.field;$('season').value=state.season;$('year').value=years.includes(state.year)?state.year:'';
-  $('kw').value=state.kw;$('sort').value=state.sort;$('remote').checked=state.remote;$('usonly').checked=state.usonly;$('nocit').checked=state.nocit;$('paidonly').checked=state.paidonly;$('known').checked=state.known;
+  $('kw').value=state.kw;$('sort').value=state.sort;$('remote').checked=state.remote;$('usonly').checked=state.usonly;$('nocit').checked=state.nocit;$('paidonly').checked=state.paidonly;$('known').checked=state.known;$('f500').checked=state.f500;
   DEG.forEach((d,i)=>$('deg'+i).checked=state.deg.includes(d));
 }
 function read(){
   state.major=$('major').value;state.field=$('field').value;state.season=$('season').value;state.year=$('year').value;state.kw=$('kw').value.trim();
-  state.sort=$('sort').value;state.remote=$('remote').checked;state.usonly=$('usonly').checked;state.nocit=$('nocit').checked;state.paidonly=$('paidonly').checked;state.known=$('known').checked;
+  state.sort=$('sort').value;state.remote=$('remote').checked;state.usonly=$('usonly').checked;state.nocit=$('nocit').checked;state.paidonly=$('paidonly').checked;state.known=$('known').checked;state.f500=$('f500').checked;
   state.deg=DEG.filter((d,i)=>$('deg'+i).checked);
   try{localStorage.setItem('if-sort',state.sort)}catch(e){}
 }
@@ -298,7 +298,8 @@ function sideOk(x){
   if(state.usonly&&!x.locs.some(l=>US.test(l)))return false;
   if(state.nocit&&x.sp==='cit')return false;
   if(state.paidonly&&x.unpaid)return false;
-  if(state.known&&!x.prog&&x.brand<5)return false;   // AI Rating doesn't recognize the company
+  if(state.known&&!x.prog&&x.brand<5)return false;
+  if(state.f500&&!x.f500)return false;   // AI Rating doesn't recognize the company
   if(state.deg.length&&x.deg.length&&!x.deg.some(d=>state.deg.includes(d)))return false;
   return true;
 }
@@ -433,7 +434,8 @@ function card(x,m){
   const wk=L.filter(x=>!x.prog&&now-x.t<7*86400).length;
   const cos=new Set(L.map(x=>x.co.toLowerCase())).size;
   const top=L.filter(x=>x.rt>=8).length;
-  $('stats').innerHTML=[[L.length,'open listings'],[wk,'new this week','hot'],[cos,'companies'],[top,'rated 8+']].map(([n,l,c])=>`<span class="stat ${c||''}"><b>${n.toLocaleString()}</b><span>${l}</span></span>`).join('');
+  $('stats').innerHTML=[[L.length,'open listings'],[wk,'new this week','hot'],[cos,'companies'],[top,'rated 8+']].map(([n,l,c])=>`<span class="stat ${c||''}"><b>${n.toLocaleString()}</b><span>${l}</span></span>`).join('')
+    +`<button type="button" class="stat f5" id="f500Stat" title="Show only Fortune 500 companies"><b>${L.filter(x=>x.f500&&!x.unpaid).length.toLocaleString()}</b><span>Fortune 500 jobs</span></button>`;
   $('fieldChips').innerHTML=FIELDS.flatMap(g=>g[1]).filter(([k])=>counts[k]).map(([k,v])=>`<button type="button" class="chip" data-f="${esc(k)}" aria-pressed="false">${esc(v.split(/,| & /)[0])}<span class="n">${counts[k].toLocaleString()}</span></button>`).join('');
   const by={};L.forEach(x=>{if(x.prog)return;const k=x.co;(by[k]=by[k]||{co:k,n:0,rt:0}).n++;by[k].rt=Math.max(by[k].rt,x.rt)});
   const best=Object.values(by).filter(c=>c.n>=3).sort((a,b)=>b.rt*Math.log2(b.n+1)-a.rt*Math.log2(a.n+1)).slice(0,12);
@@ -544,6 +546,19 @@ function renderQuick(){
 }
 
 const ADDED=new Set(window.ADDED_URLS||[]);const ADDED_N=L.filter(x=>ADDED.has(x.url)).length;let newOnly=false,beforeNew=null;
+const F500_N=L.filter(x=>x.f500&&!x.unpaid).length,F500_CO=new Set(Object.values(window.F500||{})).size;
+function renderF500(){
+  const b=$('f500Pill');if(!F500_N){b.hidden=true;return}
+  const searching=state.field||state.major||state.kw;
+  const mine=searching?results.filter(x=>x.f500).length:0;
+  b.setAttribute('aria-pressed',state.f500);
+  const st=$('f500Stat');if(st)st.setAttribute('aria-pressed',state.f500);
+  if(!state.f500&&!searching){b.hidden=true;return}
+  b.innerHTML=state.f500?`Showing Fortune 500 only <span aria-hidden="true">×</span>`
+    :`<b>${mine.toLocaleString()}</b> Fortune 500 jobs match your search`;
+  b.title=state.f500?'Show all companies':'Show only Fortune 500 companies';b.hidden=false;
+}
+document.addEventListener('click',e=>{if(e.target.closest('#f500Pill,#f500Stat')){$('f500').checked=!$('f500').checked;run();if($('f500').checked)showResults()}});
 function renderNewPill(){
   const pill=$('newPill');const n=ADDED_N;
   if(!n||newOnly){pill.hidden=true;return}
@@ -584,7 +599,7 @@ function render(){
   $('count').innerHTML=(newOnly?`<b>${results.length.toLocaleString()}</b> new since the last update <button type="button" class="chip" id="newOff">Show all jobs ×</button>`:`<b>${results.length.toLocaleString()}</b> internships · ${esc(what)}${state.kw?' · “'+esc(state.kw)+'”':''}`);
   if(!results.length)$('list').innerHTML='<div class="empty">No open listings match. Try a different season or year, a broader field, or clear the keywords.</div>';
   page();elsewhere();
-  syncFieldChips();syncStudy();renderQuick();renderNewPill();
+  syncFieldChips();syncStudy();renderQuick();renderNewPill();renderF500();
 }
 const KW={Software:'software engineering',"AI/ML/Data":'data science machine learning',Hardware:'electrical computer engineering',Mechanical:'mechanical aerospace engineering',Engineering:'civil industrial engineering',IT:'IT cybersecurity',Product:'product design UX',
  Finance:'finance accounting',Quant:'quantitative trading',Consulting:'consulting',Business:'business operations supply chain',Marketing:'marketing',Sales:'sales',HR:'human resources',RealEstate:'real estate',Retail:'retail merchandising fashion',
@@ -629,7 +644,7 @@ $('search').addEventListener('submit',e=>{e.preventDefault();if(searching)return
   b.innerHTML='<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
   setTimeout(()=>{run();showResults();b.classList.remove('busy');b.textContent='Search';b.removeAttribute('aria-label');searching=false},quick?150:750);
 });
-['season','year','sort','remote','usonly','nocit','paidonly','known',...DEG.map((d,i)=>'deg'+i)].forEach(id=>$(id).addEventListener('change',run));
+['season','year','sort','remote','usonly','nocit','paidonly','known','f500',...DEG.map((d,i)=>'deg'+i)].forEach(id=>$(id).addEventListener('change',run));
 $('more').addEventListener('click',page);
 $('major').addEventListener('change',()=>{$('field').value='';run()});
 $('field').addEventListener('change',()=>{if($('field').value)$('major').value='';run()});

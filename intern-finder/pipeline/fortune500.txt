@@ -1,0 +1,473 @@
+# 2026 Fortune 500 (source: us500.com list of Fortune's 2026 ranking; ranks 1-471)
+# alias lines: "Fortune name = name used on job boards | other name"
+Amazon = Amazon Web Services | AWS | Zoox
+Walmart
+UnitedHealth Group = UnitedHealth | Optum
+Apple
+Alphabet = Google | Waymo | DeepMind | Verily
+CVS Health = CVS | Aetna
+Berkshire Hathaway = BNSF Railway | GEICO
+McKesson
+ExxonMobil Holdings = ExxonMobil | Exxon Mobil
+Cencora
+Microsoft = LinkedIn | GitHub
+JPMorgan Chase = JPMorgan | JP Morgan | J.P. Morgan | JPMorganChase | Chase
+Costco Wholesale = Costco
+Cigna Group = Cigna | Evernorth
+Cardinal Health
+Nvidia
+Meta Platforms = Meta
+Elevance Health = Elevance | Carelon
+Centene
+Bank of America
+Chevron
+Ford Motor = Ford
+General Motors = GM | Cruise
+Citigroup = Citi
+Home Depot
+Fannie Mae
+Kroger
+Verizon Communications = Verizon
+Phillips 66
+Marathon Petroleum
+StoneX Group = StoneX
+Freddie Mac
+Humana
+AT&T
+Goldman Sachs Group = Goldman Sachs
+Comcast = NBCUniversal
+Wells Fargo
+Morgan Stanley
+Valero Energy = Valero
+Dell Technologies = Dell
+Target
+Tesla
+Walt Disney = Disney | The Walt Disney Company
+Johnson & Johnson = J&J | Johnson and Johnson
+PepsiCo
+Boeing
+United Parcel Service = UPS
+RTX = Raytheon | Pratt & Whitney | Collins Aerospace
+FedEx
+Progressive
+Lowe's
+Energy Transfer = Energy Transfer Partners
+Procter & Gamble = P&G
+Sysco
+American Express
+Albertsons
+Archer Daniels Midland = ADM
+MetLife
+HCA Healthcare
+Lockheed Martin
+Capital One Financial = Capital One
+Allstate
+Caterpillar
+International Business Machines = IBM
+Eli Lilly = Lilly | Eli Lilly and Company
+Merck
+Broadcom
+Delta Air Lines
+Pfizer
+TD Synnex
+ConocoPhillips
+Galaxy Digital
+AbbVie
+Prudential Financial = Prudential
+TJX = TJX Companies
+Performance Food Group
+United Airlines Holdings = United Airlines
+Oracle
+Cisco Systems = Cisco
+HP = HP Inc
+Charter Communications = Spectrum
+American Airlines Group = American Airlines
+Tyson Foods
+Intel
+Enterprise Products Partners = Enterprise Products
+Ingram Micro Holding = Ingram Micro
+General Dynamics = Gulfstream | General Dynamics Electric Boat | GDIT | General Dynamics UK | General Dynamics Mission Systems
+Uber Technologies = Uber
+Travelers
+Bristol-Myers Squibb = Bristol Myers Squibb | BMS
+Coca-Cola = The Coca-Cola Company
+Nike
+GE Aerospace
+Deere = John Deere | Deere & Company
+Plains GP Holdings = Plains All American
+Molina Healthcare
+Netflix
+Thermo Fisher Scientific = Thermo Fisher
+Abbott Laboratories = Abbott
+Qualcomm
+U.S. Bancorp = U.S. Bank | US Bank
+Dollar General
+Northrop Grumman
+Best Buy
+Salesforce
+Bank of New York (BNY) = BNY | BNY Mellon
+Honeywell Technologies = Honeywell
+Philip Morris International = Philip Morris
+CBRE Group = CBRE
+Visa
+Dow
+US Foods Holding = US Foods
+Mondelēz International = Mondelez | Mondelez International
+Lithia Motors = Lithia & Driveway
+GE Vernova
+Micron Technology = Micron
+Warner Bros. Discovery
+Starbucks
+World Kinect
+Amgen
+Advanced Micro Devices = AMD
+Coupang
+Hewlett Packard Enterprise = HPE
+D.R. Horton
+Lennar
+PNC Financial Services Group = PNC
+Cummins
+Oneok
+PayPal Holdings = PayPal | Venmo
+Mastercard
+Nucor
+Apollo Global Management = Apollo
+Penske Automotive Group = Penske
+Duke Energy
+United Natural Foods = UNFI
+Ferguson Enterprises = Ferguson
+Arrow Electronics
+NRG Energy = NRG
+Truist Financial = Truist
+Jabil
+Southern = Southern Company
+Gilead Sciences = Gilead
+PBF Energy
+Paramount Skydance = Paramount
+KKR
+Quanta Services
+Paccar
+Medline
+Applied Materials
+Hartford Insurance Group = The Hartford | Hartford
+CarMax
+Southwest Airlines
+Baker Hughes
+Charles Schwab = Schwab
+AutoNation
+NextEra Energy = NextEra | Florida Power & Light | FPL | NextEra Energy / FPL
+Marsh & McLennan = Marsh McLennan | Marsh | Mercer | Oliver Wyman | Guy Carpenter
+Booking Holdings = Booking.com | Priceline | KAYAK | OpenTable
+McDonald's
+HF Sinclair
+AIG
+Occidental Petroleum = Occidental | Oxy
+Marriott International = Marriott
+Jones Lang LaSalle = JLL
+International Paper
+Freeport-McMoRan
+Constellation Energy
+Waste Management = WM
+Live Nation Entertainment = Live Nation | Ticketmaster
+Stryker
+Dollar Tree
+3M
+Kraft Heinz
+PG&E
+Danaher
+Union Pacific
+Genuine Parts = NAPA
+Exelon
+BlackRock
+Block = Square | Cash App
+Adobe
+Reinsurance Group of America = RGA
+Sherwin-Williams
+WESCO International = Wesco
+Lear
+Synchrony = Synchrony Financial
+Amphenol
+Ross Stores
+Newmont
+EOG Resources
+State Street
+Macy's
+Group 1 Automotive
+CDW
+Avnet
+Halliburton
+Super Micro Computer = Supermicro
+American Electric Power = AEP
+L3Harris Technologies = L3Harris
+Becton Dickinson = BD
+Carrier Global = Carrier
+BJ's Wholesale Club
+Tenet Healthcare
+Fiserv
+Cognizant Technology Solutions = Cognizant
+GE HealthCare Technologies = GE HealthCare
+Automatic Data Processing = ADP
+Colgate-Palmolive
+Carvana
+Altria Group = Altria
+Boston Scientific
+Cheniere Energy = Cheniere
+Parker-Hannifin = Parker Hannifin
+Kimberly-Clark
+General Mills
+Edison International = Southern California Edison
+AutoZone
+Ameriprise Financial = Ameriprise
+Intuit
+Cleveland-Cliffs
+Global Partners
+Aramark
+Corebridge Financial
+Loews
+Lam Research
+Goodyear Tire & Rubber = Goodyear
+Lincoln National = Lincoln Financial
+Steel Dynamics
+Emerson Electric = Emerson
+Asbury Automotive Group
+ManpowerGroup
+W.W. Grainger = Grainger
+O'Reilly Automotive = O'Reilly Auto Parts
+Vistra
+Texas Instruments
+MGM Resorts International = MGM Resorts
+Corteva = Corteva Agriscience
+Universal Health Services
+PulteGroup
+Omnicom Group = Omnicom | Omnicom Health
+Dick's Sporting Goods
+Devon Energy
+Leidos Holdings = Leidos
+Aflac
+Targa Resources
+Murphy USA
+LPL Financial Holdings = LPL Financial
+EMCOR Group = EMCOR
+Kinder Morgan
+Consolidated Edison = Con Edison
+Keurig Dr Pepper
+Republic Services
+Markel Group = Markel
+Dominion Energy
+IQVIA Holdings = IQVIA
+Fox = Fox Corporation
+AECOM
+C.H. Robinson Worldwide = C.H. Robinson
+Bitgo Holdings = BitGo
+United Rentals
+Ecolab
+Illinois Tool Works = ITW
+Casey's General Stores = Casey's
+Raymond James Financial = Raymond James
+PPG Industries = PPG
+DTE Energy
+Corning
+Principal Financial = Principal Financial Group
+Kohl's
+Tractor Supply
+Whirlpool
+Fluor
+Gap = Gap Inc
+S&P Global
+Ally Financial = Ally
+Builders FirstSource
+Sonic Automotive
+Stanley Black & Decker
+Kenvue
+Kyndryl Holdings = Kyndryl
+Diamondback Energy
+EchoStar
+Textron = Bell | Textron Aviation
+Expedia Group = Expedia
+W.R. Berkley
+Xcel Energy
+FirstEnergy
+First Citizens BancShares = First Citizens Bank
+Blackstone
+Fidelity National Financial
+Otis Worldwide = Otis
+Amentum Holdings = Amentum
+Regeneron Pharmaceuticals = Regeneron
+Estée Lauder = Estee Lauder | The Estée Lauder Companies
+BorgWarner
+Northern Trust
+Viatris
+MasTec
+Reliance
+Alaska Air Group = Alaska Airlines
+BrightSpring Health Services
+CSX
+LKQ
+Labcorp Holdings = Labcorp
+Arthur J. Gallagher = Gallagher
+Venture Global
+DoorDash = DoorDash Canada
+Sempra
+DaVita
+Eversource Energy = Eversource
+ServiceNow
+M&T Bank
+Henry Schein
+GXO Logistics = GXO
+Ball = Ball Corporation
+Unum Group = Unum
+Las Vegas Sands
+Entergy
+Fifth Third Bancorp = Fifth Third Bank | Fifth Third
+DXC Technology
+Alcoa
+Assurant
+Ryder System = Ryder
+Intercontinental Exchange = ICE
+Cincinnati Financial
+Chewy
+Community Health Systems
+Huntington Bancshares = Huntington Bank
+Huntington Ingalls Industries = HII | Newport News Shipbuilding
+Wayfair
+Lumen Technologies = Lumen
+Ulta Beauty
+Crown Holdings
+Airbnb
+AES
+Norfolk Southern
+Public Service Enterprise Group = PSEG
+KLA
+Expand Energy
+Hormel Foods
+Darden Restaurants
+Citizens Financial Group = Citizens
+Mosaic
+Hilton Worldwide Holdings = Hilton
+Air Products & Chemicals = Air Products
+Jacobs Solutions = Jacobs
+Vertex Pharmaceuticals
+J.B. Hunt Transport Services = J.B. Hunt
+Booz Allen Hamilton Holding = Booz Allen Hamilton | Booz Allen
+Williams = Williams Companies
+Chipotle Mexican Grill = Chipotle
+Yum China Holdings = Yum China
+Oscar Health
+Hershey = The Hershey Company
+Motorola Solutions
+Equitable Holdings = Equitable
+Avis Budget Group
+Conagra Brands
+Baxter International = Baxter
+Burlington Stores = Burlington
+Caesars Entertainment
+Owens Corning
+KeyCorp = KeyBank
+Westlake
+Westinghouse Air Brake = Wabtec
+Molson Coors Beverage = Molson Coors
+Lululemon athletica = lululemon
+Ebay
+Expeditors Intl. of Washington = Expeditors
+Quest Diagnostics
+Analog Devices
+Andersons = The Andersons
+Gold.com
+Toll Brothers
+International Flavors & Fragrances = IFF
+Welltower
+Jefferies Financial Group = Jefferies
+Autoliv
+Mohawk Industries
+Delek US Holdings = Delek US
+Fidelity National Information (FIS) = FIS
+Accendra Health
+American Tower
+NVR
+Interactive Brokers Group = Interactive Brokers
+Oshkosh
+Cintas
+Campbell's = Campbell Soup | The Campbell's Company
+Vertiv Holdings = Vertiv
+Global Payments
+Constellation Brands
+AGCO
+Intuitive Surgical = Intuitive
+Dana = Dana Incorporated
+Biogen
+News Corp. = News Corp | Dow Jones
+Concentrix
+WEC Energy Group
+VF = VF Corporation
+Seaboard
+Icahn Enterprises
+Regions Financial = Regions Bank
+Thor Industries
+Workday
+Celanese
+Western Digital
+QVC Group
+Zoetis
+CenterPoint Energy
+Equinix
+Palo Alto Networks
+APA
+Old Republic International
+Comfort Systems USA
+JetBlue Airways = JetBlue
+PPL
+Xylem
+Arista Networks
+Packaging Corp. of America
+PVH
+Ovintiv
+Avery Dennison
+TransDigm Group = TransDigm
+Sprouts Farmers Market
+Prologis
+Franklin Resources = Franklin Templeton
+Eastman Chemical = Eastman
+ABM Industries = ABM
+NOV
+J.M. Smucker = Smucker's
+EQT = EQT Corporation
+CACI International = CACI
+Graphic Packaging Holding = Graphic Packaging
+Advance Auto Parts
+Optimum Communications
+Sirius XM Holdings = SiriusXM
+CMS Energy = Consumers Energy
+Hertz Global Holdings = Hertz
+Ameren
+Rockwell Automation
+Solventum
+Monster Beverage
+Nasdaq
+Howmet Aerospace = Howmet
+Insight Enterprises = Insight
+Zimmer Biomet Holdings = Zimmer Biomet
+Yum Brands = Yum! Brands
+Fastenal
+Marvell Technology = Marvell
+Voya Financial = Voya
+American Financial Group
+Post Holdings
+XPO
+DuPont
+Sanmina
+Taylor Morrison Home = Taylor Morrison
+Dover
+Vulcan Materials
+APi Group
+Roper Technologies
+KBR
+Sonoco Products = Sonoco
+Williams-Sonoma
+Commercial Metals = CMC
+Moody's
+Ingersoll Rand
+Core & Main
+Primoris Services = Primoris
+Masco
+Somnigroup International = Tempur Sealy
+Resideo Technologies = Resideo

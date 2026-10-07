@@ -66,6 +66,8 @@ select:focus-visible,input:focus-visible,textarea:focus-visible,button:focus-vis
 h1{font:800 clamp(34px,6vw,56px)/.95 var(--display);margin:0;letter-spacing:-.03em}
 h1 em{font-style:normal;color:var(--hero-em)}
 .tagline{margin:0;color:var(--hero-muted);font-size:16px;max-width:46ch}
+.stat.f5{font:inherit;color:inherit;background:none;border:0;border-right:1px solid var(--hero-line);text-align:left;cursor:pointer}
+.stat.f5:hover{background:var(--hero-line)}.stat.f5[aria-pressed="true"]{background:var(--hero-ink)}.stat.f5[aria-pressed="true"] b,.stat.f5[aria-pressed="true"] span{color:var(--bg)}
 .stats{display:flex;gap:0;flex-wrap:wrap;border:1px solid var(--hero-line);border-radius:14px;overflow:hidden}
 .stat{padding:10px 18px;display:grid;gap:0;border-right:1px solid var(--hero-line);min-width:96px}
 .stat:last-child{border-right:0}
@@ -78,6 +80,9 @@ h1 em{font-style:normal;color:var(--hero-em)}
 .newpill{display:inline-flex;align-items:center;gap:6px;font:700 12.5px var(--body);background:var(--hot);color:var(--hot-ink);border:0;border-radius:999px;padding:5px 12px;cursor:pointer}
 .newpill:hover{filter:brightness(1.08)}
 .newpill small{font-weight:500;opacity:.85}
+.f5pill{display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--body);background:transparent;color:inherit;border:1px solid currentColor;border-radius:999px;padding:4px 12px;cursor:pointer;opacity:.9}
+.f5pill b{font-weight:800}.f5pill small{opacity:.75}
+.f5pill:hover{opacity:1}.f5pill[aria-pressed="true"]{background:var(--ink,#111);color:var(--bg,#fff);border-color:transparent;font-weight:700}
 .new.just{background:var(--accent)}
 
 /* search console */
@@ -361,7 +366,7 @@ body{margin:0}
       <div class="quick" id="quick"><small>Try:</small></div>
     </form>
     <span class="hero-meta"><span class="asof" id="asof"></span>
-    <button type="button" class="install" id="install" hidden>Install app</button><button type="button" class="newpill" id="newPill" hidden></button></span>
+    <button type="button" class="install" id="install" hidden>Install app</button><button type="button" class="newpill" id="newPill" hidden></button><button type="button" class="f5pill" id="f500Pill" aria-pressed="false" hidden></button></span>
   </section>
 
   <section class="strip" aria-labelledby="fhead">
@@ -414,6 +419,7 @@ body{margin:0}
       <fieldset><legend>Quality</legend>
         <label class="ck"><input type="checkbox" id="paidonly" checked> Hide unpaid</label>
         <label class="ck"><input type="checkbox" id="known"> Well-known companies only</label>
+        <label class="ck"><input type="checkbox" id="f500"> Fortune 500 only</label>
       </fieldset>
       <fieldset><legend>Sponsorship</legend>
         <label class="ck"><input type="checkbox" id="nocit"> Hide citizenship-required</label>
@@ -452,7 +458,7 @@ body{margin:0}
 <script>if(window.IF_CONFIG&&IF_CONFIG.SUPABASE_URL)document.write('<script src="vendor/supabase-2.117.2.js"><\/script>')</script>
 <script>
 fetch('data.json').then(r=>{if(!r.ok)throw 0;return r.json()}).then(d=>{
-  window.LISTINGS=d.listings;window.LISTINGS_ASOF=d.asof;window.ADDED_URLS=d.added||[];window.SUMMARIES=d.summaries;window.DOMAINS=d.domains;
+  window.LISTINGS=d.listings;window.LISTINGS_ASOF=d.asof;window.ADDED_URLS=d.added||[];window.SUMMARIES=d.summaries;window.DOMAINS=d.domains;window.F500=d.f500||{};
   const s=document.createElement('script');s.src='app.js';document.body.appendChild(s);
 }).catch(()=>{document.getElementById('list').innerHTML='<div class="empty">Could not load internships. Check your connection and refresh.</div>'});
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
