@@ -178,13 +178,20 @@ if os.environ.get('GITHUB_ACTIONS'):
     slot = datetime.datetime.utcnow().hour // 3 % 8
     prev_urls0 = {r[8] for r in prev.get('listings', [])} if prev else set()
     todo = [r[8] for r in L if r[10] != 'p' and r[8] not in dead and _job_key(r[8]) not in live
-            and (r[8] not in prev_urls0 or (FULL and int(hashlib.md5(r[8].encode()).hexdigest(), 16) % 8 == slot))]
-    t0 = _time.time(); n = gone = 0
+            and (r[8] not in prev_urls0 or os.environ.get('GITHUB_EVENT_NAME') != 'schedule'
+                 or (FULL and int(hashlib.md5(r[8].encode()).hexdigest(), 16) % 8 == slot))]
+    todo.sort(key=lambda u: 'myworkdayjobs' not in u)   # Workday first: its pages always load, so only this check catches removed jobs
+    t0 = _time.time(); res = collections.Counter(); samples = []
     with ThreadPoolExecutor(max_workers=32) as ex:
-        for u, g in zip(todo, ex.map(lambda u: None if _time.time() - t0 > 180 else _gone(u), todo)):
-            n += 1
-            if g: dead[u] = int(_now); gone += 1
-    print(f'link check: {len(todo)} links checked ({len(live)} live from job feeds), {gone} gone now, {len(dead)} known dead, {_time.time()-t0:.0f}s')
+        for u, g in zip(todo, ex.map(lambda u: 'skip' if _time.time() - t0 > 240 else _gone(u), todo)):
+            res[str(g)] += 1
+            if g is True:
+                dead[u] = int(_now)
+                if len(samples) < 4: samples.append(u)
+    msg = (f'{len(todo)} links to check ({len(live)} jobs live in feeds): {res["True"]} removed, {res["False"]} ok, '
+           f'{res["None"]} unclear, {res["skip"]} left for next run; {len(dead)} known dead; {_time.time()-t0:.0f}s')
+    print('link check: ' + msg)
+    print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
 
 before = len(L); counts = collections.Counter()
 keep = []
