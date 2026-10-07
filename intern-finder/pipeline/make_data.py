@@ -201,6 +201,13 @@ if os.environ.get('GITHUB_ACTIONS'):
     msg = (f'{len(todo)} links to check ({len(live)} jobs live in feeds): {res["True"]} removed, {res["False"]} ok, '
            f'{res["None"]} unclear, {res["skip"]} left for next run; {len(dead)} known dead; {_time.time()-t0:.0f}s')
     print('link check: ' + msg)
+    for u in [r[8] for r in L if 'centene' in r[8] and ('1662248' in r[8] or '1660523' in r[8])][:3]:
+        try:
+            _, fin, pg = _get(u)
+            info = {k: pg.count(k) for k in ('og:description', 'og:title', 'jobPostingInfo', '1662248', '1660523', 'description', 'Summer', 'Intern')}
+            m = re.search(r'<meta[^>]+og:(title|description)[^>]+>', pg)
+            print('::notice title=WDpage::' + u[-35:] + f' len={len(pg)} fin={fin[-40:]} {info} ' + (m.group(0)[:200] if m else 'nometa'))
+        except Exception as e: print('::notice title=WDpage::' + u[-35:] + ' err ' + repr(e)[:100])
     why = collections.Counter((urllib.parse.urlparse(u).hostname or '').split('.', 1)[-1] + ' ' + w for u, w in WHY.items())
     print('::notice title=Link check unclear::' + '; '.join(f'{k} x{v}' for k, v in why.most_common(10)))
     print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
