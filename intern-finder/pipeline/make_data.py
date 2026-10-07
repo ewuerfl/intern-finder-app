@@ -155,8 +155,16 @@ def _gone(u):
             if re.fullmatch(r'[a-z]{2}-[A-Z]{2}', parts[0]): parts = parts[1:]
             site, rest = parts[0], path.split('/job/', 1)[1]
             with WD_CHECK:
-                st, _, body = _get(f'https://{h}/wday/cxs/{h.split(".")[0]}/{site}/job/{rest}', 'application/json')
-            return 'jobPostingInfo' not in body
+                try:
+                    st, _, body = _get(f'https://{h}/wday/cxs/{h.split(".")[0]}/{site}/job/{rest}', 'application/json')
+                    return 'jobPostingInfo' not in body
+                except urllib.error.HTTPError as e:
+                    if e.code != 403: raise
+                    # Workday answers 403 for a job path that no longer exists. Confirm on the public page:
+                    # a live posting's page carries its requisition ID; a removed one falls back to the search page.
+                    req = rest.rsplit('_', 1)[-1]
+                    st, _, page = _get(u)
+                    return req not in page
         m = re.search(r'greenhouse\.io/([^/]+)/jobs/(\d+)', u)
         if m:
             _get(f'https://boards-api.greenhouse.io/v1/boards/{m.group(1)}/jobs/{m.group(2)}', 'application/json'); return False
@@ -195,20 +203,6 @@ if os.environ.get('GITHUB_ACTIONS'):
     print('link check: ' + msg)
     why = collections.Counter((urllib.parse.urlparse(u).hostname or '').split('.', 1)[-1] + ' ' + w for u, w in WHY.items())
     print('::notice title=Link check unclear::' + '; '.join(f'{k} x{v}' for k, v in why.most_common(10)))
-    dbg = [u for u, w in WHY.items() if 'myworkday' in u and '403' in w][:3]
-    try:
-        livewd = [x[4] for x in json.load(open('ats.json')) if 'centene.wd5' in x[4] or 'leidos.wd5' in x[4]][:2]
-    except Exception: livewd = []
-    def _raw(u):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (compatible; InternFinder link check)'}), timeout=12) as r: return r.status, r.read(3000).decode('utf-8','replace')[-200:]
-        except urllib.error.HTTPError as e: return e.code, e.read(300).decode('utf-8','replace')
-        except Exception as e: return type(e).__name__, ''
-    for u in dbg + livewd:
-        WHY.pop(u, None); g = _gone(u)
-        print('::notice title=WD debug::' + u + ' gone=' + str(g) + ' why=' + WHY.get(u, '') + ' page=' + str(_raw(u))[:300])
-    dbg = [r[8] for r in L if 'centene' in r[8] and '1662248' in r[8]]
-    print('::notice title=Link check centene::' + ' | '.join(f'{u[-30:]}={_gone(u)}/{WHY.get(u,"")}' for u in dbg))
     print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
 
 before = len(L); counts = collections.Counter()
