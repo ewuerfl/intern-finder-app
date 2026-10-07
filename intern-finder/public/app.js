@@ -405,7 +405,7 @@ function card(x,m){
         ${x.sum.a?`<p><b>The company</b>${esc(x.sum.a)}</p>`:''}
         ${x.sum.r?`<p><b>Your role</b>${esc(x.sum.r)}</p>`:''}
         ${x.sum.l?`<p><b>What they want</b>${esc(x.sum.l)}</p>`:''}</div>`:x.prog&&x.about?`<div class="aisum"><span class="lbl">About this program</span><p>${esc(x.about)}</p></div>`:''}
-      <div class="rbox">${ring(x.rt,true)}<div><b>AI Rating</b><span>${esc(brandLabel(x.brand))} · ${x.hr?esc('Pay about $'+x.hr+'/hr'):'Pay not listed'}</span></div></div>
+      <div class="rbox">${ring(x.rt,true)}<div><b>AI Rating</b><span>${esc(brandLabel(x.brand))} · ${x.hr?esc('Pay about $'+x.hr+'/hr'):'Pay not listed (estimated)'} · ${esc(x.cat||'General')} role${x.unpaid?' · Unpaid':''}</span><small class="rhow">Company 50% · Pay 30% · Type of role 20%, plus how recently it was posted</small></div></div>
       <dl class="dl">
         <dt>Company</dt><dd>${esc(x.co)}</dd>
         <dt>Role</dt><dd>${esc(x.title)}</dd>

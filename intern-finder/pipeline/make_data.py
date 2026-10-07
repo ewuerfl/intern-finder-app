@@ -223,6 +223,16 @@ for r in L:
 L[:] = keep
 print(f'quality filters removed {before - len(L)}: {dict(counts)}; {sum(1 for r in L if r[15]=="u")} marked unpaid')
 
+# ---------- AI Rating (see rating.py) ----------
+from rating import estimate_brand, rating as _rating
+_n = collections.Counter(r[0] for r in L)
+for r in L:
+    known = tiers.score(r[0])
+    r[13] = known if known is not None else estimate_brand(r[0], urls.get(r[0], []), _n[r[0]], r[0] in domains)
+    r[12] = _rating(r[13], r[14], r[1], r[2], r[7], r[15] == 'u', r[10] == 'p')
+_hist = collections.Counter(int(r[12]) for r in L)
+print('rating spread:', ' '.join(f'{k}:{_hist[k]}' for k in sorted(_hist)))
+
 prev_urls = {r[8] for r in prev.get('listings', [])} if prev else set()
 added = [r[8] for r in L if prev_urls and r[8] not in prev_urls]
 used = {r[8] for r in L}
