@@ -205,8 +205,6 @@ if os.environ.get('GITHUB_ACTIONS'):
     msg = (f'{len(todo)} links to check ({len(live)} jobs live in feeds): {res["True"]} removed, {res["False"]} ok, '
            f'{res["None"]} unclear, {res["skip"]} left for next run; {len(dead)} known dead; {_time.time()-t0:.0f}s')
     print('link check: ' + msg)
-    for u in [r[8] for r in L if 'centene' in r[8] and ('1662248' in r[8] or '1660523' in r[8])][:3]:
-        WHY.pop(u, None); print('::notice title=WD check::' + u[-35:] + ' gone=' + str(_gone(u)) + ' ' + WHY.get(u, ''))
     why = collections.Counter((urllib.parse.urlparse(u).hostname or '').split('.', 1)[-1] + ' ' + w for u, w in WHY.items())
     print('::notice title=Link check unclear::' + '; '.join(f'{k} x{v}' for k, v in why.most_common(10)))
     print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
