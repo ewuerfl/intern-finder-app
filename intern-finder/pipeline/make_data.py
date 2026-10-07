@@ -162,7 +162,7 @@ def _gone(u):
                     if e.code != 403: raise
                     # Workday answers 403 for a job path that no longer exists. Confirm on the public page:
                     # a live posting's page carries its requisition ID; a removed one falls back to the search page.
-                    req = rest.rsplit('_', 1)[-1]
+                    req = re.sub(r'-\d+$', '', rest.rsplit('_', 1)[-1])
                     st, _, page = _get(u)
                     return req not in page
         m = re.search(r'greenhouse\.io/([^/]+)/jobs/(\d+)', u)
