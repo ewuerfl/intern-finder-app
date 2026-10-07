@@ -79,6 +79,14 @@ h1 em{font-style:normal;color:var(--hero-em)}
 .hero-meta{display:flex;gap:8px 14px;align-items:center;flex-wrap:wrap;position:relative;z-index:1}
 .newpill{display:inline-flex;align-items:center;gap:6px;font:700 12.5px var(--body);background:var(--hot);color:var(--hot-ink);border:0;border-radius:999px;padding:5px 12px;cursor:pointer}
 .newpill:hover{filter:brightness(1.08)}
+.f5new{display:inline-flex;align-items:center;gap:6px;font:800 12.5px var(--body);color:#3a2600;border:1px solid #b8860b;border-radius:999px;padding:5px 13px;cursor:pointer;
+  background:linear-gradient(110deg,#f7d774 0%,#e9b949 35%,#fff1b8 50%,#e9b949 65%,#d4a017 100%);background-size:220% 100%;
+  box-shadow:0 0 0 3px rgba(233,185,73,.25),0 4px 14px rgba(212,160,23,.35);animation:f5shine 4s ease-in-out infinite}
+.f5new .star{font-size:13px}.f5new .short{display:none}
+@media (max-width:560px){.f5new .long{display:none}.f5new .short{display:inline}}
+.f5new:hover{filter:brightness(1.06);transform:translateY(-1px)}
+@keyframes f5shine{0%,60%{background-position:100% 0}100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.f5new{animation:none}}
 .newpill small{font-weight:500;opacity:.85}
 .f5pill{display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--body);background:transparent;color:inherit;border:1px solid currentColor;border-radius:999px;padding:4px 12px;cursor:pointer;opacity:.9}
 .f5pill b{font-weight:800}.f5pill small{opacity:.75}
@@ -366,7 +374,7 @@ body{margin:0}
       <div class="quick" id="quick"><small>Try:</small></div>
     </form>
     <span class="hero-meta"><span class="asof" id="asof"></span>
-    <button type="button" class="install" id="install" hidden>Install app</button><button type="button" class="newpill" id="newPill" hidden></button><button type="button" class="f5pill" id="f500Pill" aria-pressed="false" hidden></button></span>
+    <button type="button" class="install" id="install" hidden>Install app</button><button type="button" class="newpill" id="newPill" hidden></button><button type="button" class="f5new" id="newF5" hidden></button><button type="button" class="f5pill" id="f500Pill" aria-pressed="false" hidden></button></span>
   </section>
 
   <section class="strip" aria-labelledby="fhead">

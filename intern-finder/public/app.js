@@ -545,7 +545,7 @@ function renderQuick(){
   $('quick').innerHTML='<small>Try:</small>'+out.map(([c,n])=>`<button type="button" class="chip" data-q="${esc(c)}" aria-pressed="${state.kw.toLowerCase()===c.toLowerCase()}">${esc(c)}<span class="n">${n.toLocaleString()}</span></button>`).join('');
 }
 
-const ADDED=new Set(window.ADDED_URLS||[]);const ADDED_N=L.filter(x=>ADDED.has(x.url)).length;let newOnly=false,beforeNew=null;
+const ADDED=new Set(window.ADDED_URLS||[]);const ADDED_N=L.filter(x=>ADDED.has(x.url)).length;let newOnly=false,beforeNew=null,f5New=false;const ADDED_F5=L.filter(x=>ADDED.has(x.url)&&x.f500&&!x.unpaid).length;
 const F500_N=L.filter(x=>x.f500&&!x.unpaid).length,F500_CO=new Set(Object.values(window.F500||{})).size;
 function renderF500(){
   const b=$('f500Pill');if(!F500_N){b.hidden=true;return}
@@ -561,14 +561,16 @@ function renderF500(){
 document.addEventListener('click',e=>{if(e.target.closest('#f500Pill,#f500Stat')){$('f500').checked=!$('f500').checked;run();if($('f500').checked)showResults()}});
 function renderNewPill(){
   const pill=$('newPill');const n=ADDED_N;
+  const f5=$('newF5');
+  if(ADDED_F5&&!newOnly){f5.innerHTML=`<span class="star" aria-hidden="true">★</span> +${ADDED_F5.toLocaleString()} Fortune 500 job${ADDED_F5===1?'':'s'}<span class="long"> since the last update</span><span class="short"> new</span>`;f5.hidden=false}else f5.hidden=true;
   if(!n||newOnly){pill.hidden=true;return}
   const mine=(state.field||state.major||state.kw)?results.filter(x=>ADDED.has(x.url)).length:0;
   pill.innerHTML=`+${n.toLocaleString()} new job${n===1?'':'s'} since the last update${mine?` <small>· ${mine} match your search</small>`:''}`;
   pill.hidden=false;
 }
 document.addEventListener('click',e=>{
-  if(e.target.closest('#newPill')){beforeNew=['major','field','kw','season','year'].map(k=>[k,$(k).value]);newOnly=true;$('major').value='';$('field').value='';$('kw').value='';$('season').value='';$('year').value='';run();showResults()}
-  else if(e.target.closest('#newOff')){newOnly=false;(beforeNew||[]).forEach(([k,v])=>{$(k).value=v});beforeNew=null;run()}
+  if(e.target.closest('#newPill,#newF5')){f5New=!!e.target.closest('#newF5');if(f5New)$('f500').checked=true;beforeNew=['major','field','kw','season','year'].map(k=>[k,$(k).value]);newOnly=true;$('major').value='';$('field').value='';$('kw').value='';$('season').value='';$('year').value='';run();showResults()}
+  else if(e.target.closest('#newOff')){newOnly=false;if(f5New){$('f500').checked=false;f5New=false}(beforeNew||[]).forEach(([k,v])=>{$(k).value=v});beforeNew=null;run()}
 });
 /* light / dark switch (remembered in this browser) */
 const SUN='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
@@ -596,7 +598,7 @@ function render(){
   results=L.filter(matches);
   if(state.sort==='rel')results.sort((a,b)=>((b.rel||0)-(a.rel||0))||(b.rt-a.rt)*0.6+(b.t-a.t)/864000);else if(state.sort==='co')results.sort((a,b)=>a.co.localeCompare(b.co)||b.t-a.t);else if(state.sort==='rt')results.sort((a,b)=>b.rt-a.rt||b.t-a.t);else results.sort((a,b)=>b.t-a.t);
   const what=[state.field?CAT[state.field]:state.major?state.major+' ('+MAJ[state.major].f.map(c=>CAT[c]).join(', ')+')':'All fields',[state.season,state.year].filter(Boolean).join(' ')||'any term'].join(' · ');
-  $('count').innerHTML=(newOnly?`<b>${results.length.toLocaleString()}</b> new since the last update <button type="button" class="chip" id="newOff">Show all jobs ×</button>`:`<b>${results.length.toLocaleString()}</b> internships · ${esc(what)}${state.kw?' · “'+esc(state.kw)+'”':''}`);
+  $('count').innerHTML=(newOnly?`<b>${results.length.toLocaleString()}</b> new${f5New?' Fortune 500 jobs':''} since the last update <button type="button" class="chip" id="newOff">Show all jobs ×</button>`:`<b>${results.length.toLocaleString()}</b> internships · ${esc(what)}${state.kw?' · “'+esc(state.kw)+'”':''}`);
   if(!results.length)$('list').innerHTML='<div class="empty">No open listings match. Try a different season or year, a broader field, or clear the keywords.</div>';
   page();elsewhere();
   syncFieldChips();syncStudy();renderQuick();renderNewPill();renderF500();
