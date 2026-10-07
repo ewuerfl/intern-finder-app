@@ -139,7 +139,7 @@ if FULL and os.path.exists('ats.json'):
     try: live = {_job_key(x[4]) for x in json.load(open('ats.json'))}
     except Exception: pass
 GONE_URL = re.compile(r'[?&]error=true|/404\b|not[-_]?found|job[-_]?(closed|expired|unavailable)|posting[-_]?(closed|expired)|no[-_]longer[-_]available', re.I)
-WD_CHECK = threading.Semaphore(6)
+WD_CHECK = threading.Semaphore(4)
 
 def _get(u, accept='text/html,application/json'):
     req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (compatible; InternFinder link check)', 'Accept': accept})
@@ -160,11 +160,15 @@ def _gone(u):
                     return 'jobPostingInfo' not in body
                 except urllib.error.HTTPError as e:
                     if e.code != 403: raise
-                    # Workday answers 403 for a job path that no longer exists. Confirm on the public page:
-                    # a live posting's page carries its requisition ID; a removed one falls back to the search page.
+                    # Workday answers 403 for a job path that no longer exists. Confirm with its job search:
+                    # search the requisition ID; a live posting comes back, a removed one doesn't.
                     req = re.sub(r'-\d+$', '', rest.rsplit('_', 1)[-1])
-                    st, _, page = _get(u)
-                    return req not in page
+                    q = urllib.request.Request(f'https://{h}/wday/cxs/{h.split(".")[0]}/{site}/jobs', method='POST',
+                        data=json.dumps({'appliedFacets': {}, 'limit': 20, 'offset': 0, 'searchText': req}).encode(),
+                        headers={'User-Agent': 'Mozilla/5.0 (InternFinder; +https://intern-finder-xi.vercel.app)', 'Accept': 'application/json', 'Content-Type': 'application/json'})
+                    with urllib.request.urlopen(q, timeout=15) as r:
+                        posts = json.loads(r.read().decode('utf-8', 'replace')).get('jobPostings', [])
+                    return not any(req in (x.get('externalPath') or '') or req in json.dumps(x.get('bulletFields') or []) for x in posts)
         m = re.search(r'greenhouse\.io/([^/]+)/jobs/(\d+)', u)
         if m:
             _get(f'https://boards-api.greenhouse.io/v1/boards/{m.group(1)}/jobs/{m.group(2)}', 'application/json'); return False
@@ -202,12 +206,7 @@ if os.environ.get('GITHUB_ACTIONS'):
            f'{res["None"]} unclear, {res["skip"]} left for next run; {len(dead)} known dead; {_time.time()-t0:.0f}s')
     print('link check: ' + msg)
     for u in [r[8] for r in L if 'centene' in r[8] and ('1662248' in r[8] or '1660523' in r[8])][:3]:
-        try:
-            _, fin, pg = _get(u)
-            info = {k: pg.count(k) for k in ('og:description', 'og:title', 'jobPostingInfo', '1662248', '1660523', 'description', 'Summer', 'Intern')}
-            m = re.search(r'<meta[^>]+og:(title|description)[^>]+>', pg)
-            print('::notice title=WDpage::' + u[-35:] + f' len={len(pg)} fin={fin[-40:]} {info} ' + (m.group(0)[:200] if m else 'nometa'))
-        except Exception as e: print('::notice title=WDpage::' + u[-35:] + ' err ' + repr(e)[:100])
+        WHY.pop(u, None); print('::notice title=WD check::' + u[-35:] + ' gone=' + str(_gone(u)) + ' ' + WHY.get(u, ''))
     why = collections.Counter((urllib.parse.urlparse(u).hostname or '').split('.', 1)[-1] + ' ' + w for u, w in WHY.items())
     print('::notice title=Link check unclear::' + '; '.join(f'{k} x{v}' for k, v in why.most_common(10)))
     print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
