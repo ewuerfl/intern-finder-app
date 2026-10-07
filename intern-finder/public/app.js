@@ -259,7 +259,7 @@ const MAJORS=[
 ];
 const CAT=Object.fromEntries(FIELDS.flatMap(g=>g[1]));
 const SUM=window.SUMMARIES||{};
-const L=window.LISTINGS.map((r,i)=>({id:i,co:r[0],title:r[1],cats:r[2],cat:r[2][0],terms:r[3],locs:r[4],deg:r[5],sp:r[6],t:r[7],url:r[8],pay:r[9]||'',prog:r[10]==='p',about:r[11]||'',rt:r[12]||0,brand:r[13]||0,hr:r[14]||null,sum:SUM[r[8]]||null,
+const L=window.LISTINGS.map((r,i)=>({id:i,co:r[0],title:r[1],cats:r[2],cat:r[2][0],terms:r[3],locs:r[4],deg:r[5],sp:r[6],t:r[7],url:r[8],pay:r[9]||'',prog:r[10]==='p',about:r[11]||'',rt:r[12]||0,brand:r[13]||0,hr:r[14]||null,unpaid:r[15]==='u',sum:SUM[r[8]]||null,
   hay:(r[0]+' '+r[1]+' '+r[4].join(' ')).toLowerCase()}));
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -274,18 +274,18 @@ const DEG=["Bachelor's","Master's","PhD","Associate's"];
 $('degrees').insertAdjacentHTML('beforeend',DEG.map((d,i)=>`<label class="ck"><input type="checkbox" id="deg${i}" value="${d}"> ${d}</label>`).join(''));
 
 const US=/(,\s?[A-Z]{2}$)|United States|USA|\bUS\b|Remote in USA/;
-let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[]};
+let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[],paidonly:true,known:false};
 try{const s=localStorage.getItem('if-sort');if(s)state.sort=s}catch(e){} // every visit starts with a clear search; only the sort order is remembered
 if(state.field&&!CAT[state.field])state.field='';if(state.major&&!MAJ[state.major])state.major='';
 
 function apply(){
   $('major').value=state.major;$('field').value=state.field;$('season').value=state.season;$('year').value=years.includes(state.year)?state.year:'';
-  $('kw').value=state.kw;$('sort').value=state.sort;$('remote').checked=state.remote;$('usonly').checked=state.usonly;$('nocit').checked=state.nocit;
+  $('kw').value=state.kw;$('sort').value=state.sort;$('remote').checked=state.remote;$('usonly').checked=state.usonly;$('nocit').checked=state.nocit;$('paidonly').checked=state.paidonly;$('known').checked=state.known;
   DEG.forEach((d,i)=>$('deg'+i).checked=state.deg.includes(d));
 }
 function read(){
   state.major=$('major').value;state.field=$('field').value;state.season=$('season').value;state.year=$('year').value;state.kw=$('kw').value.trim();
-  state.sort=$('sort').value;state.remote=$('remote').checked;state.usonly=$('usonly').checked;state.nocit=$('nocit').checked;
+  state.sort=$('sort').value;state.remote=$('remote').checked;state.usonly=$('usonly').checked;state.nocit=$('nocit').checked;state.paidonly=$('paidonly').checked;state.known=$('known').checked;
   state.deg=DEG.filter((d,i)=>$('deg'+i).checked);
   try{localStorage.setItem('if-sort',state.sort)}catch(e){}
 }
@@ -297,6 +297,8 @@ function sideOk(x){
   if(state.remote&&!x.locs.some(l=>/remote/i.test(l)))return false;
   if(state.usonly&&!x.locs.some(l=>US.test(l)))return false;
   if(state.nocit&&x.sp==='cit')return false;
+  if(state.paidonly&&x.unpaid)return false;
+  if(state.known&&!x.prog&&x.brand<5)return false;   // AI Rating doesn't recognize the company
   if(state.deg.length&&x.deg.length&&!x.deg.some(d=>state.deg.includes(d)))return false;
   return true;
 }
@@ -627,7 +629,7 @@ $('search').addEventListener('submit',e=>{e.preventDefault();if(searching)return
   b.innerHTML='<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
   setTimeout(()=>{run();showResults();b.classList.remove('busy');b.textContent='Search';b.removeAttribute('aria-label');searching=false},quick?150:750);
 });
-['season','year','sort','remote','usonly','nocit',...DEG.map((d,i)=>'deg'+i)].forEach(id=>$(id).addEventListener('change',run));
+['season','year','sort','remote','usonly','nocit','paidonly','known',...DEG.map((d,i)=>'deg'+i)].forEach(id=>$(id).addEventListener('change',run));
 $('more').addEventListener('click',page);
 $('major').addEventListener('change',()=>{$('field').value='';run()});
 $('field').addEventListener('change',()=>{if($('field').value)$('major').value='';run()});

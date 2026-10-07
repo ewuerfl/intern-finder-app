@@ -109,11 +109,53 @@ try:
 except Exception:
     pass
 
+# ---------- Quality filters ----------
+import datetime, time as _time, urllib.request
+from concurrent.futures import ThreadPoolExecutor
+_now = _time.time()
+FEED = re.compile(r'greenhouse|lever\.co|ashbyhq|myworkdayjobs|smartrecruiters|workable|rippling|oraclecloud|recruitee|breezy|bamboohr')
+JUNK = re.compile(r'high school|commission[- ]only|brand ambassador|campus ambassador|independent contractor|\bmlm\b|door[- ]to[- ]door|unpaid volunteer', re.I)
+UNPAID = re.compile(r'\bunpaid\b|\bvolunteer\b|for (academic )?credit( only)?\b|no (compensation|pay)\b|not paid', re.I)
+def _past(terms):
+    end = {'Spring': 5, 'Summer': 8, 'Fall': 12, 'Winter': 2}; today = datetime.date.today()
+    ts = [x.split() for x in terms if len(x.split()) == 2 and x.split()[1].isdigit()]
+    return bool(ts) and all((int(y), end.get(s, 12)) < (today.year, today.month) for s, y in ts)
+
+# Dead links: company-site links (not live job feeds) are checked every few hours; a 404/410 removes the job for 14 days.
+dead = {u: ts for u, ts in (prev.get('dead') or {}).items() if _now - ts < 14 * 86400} if prev else {}
+FULL = os.environ.get('GITHUB_EVENT_NAME') != 'schedule' or datetime.datetime.utcnow().hour % 3 == 0
+if FULL and os.environ.get('GITHUB_ACTIONS'):
+    def _check(u):
+        try:
+            req = urllib.request.Request(u, method='GET', headers={'User-Agent': 'Mozilla/5.0 (compatible; InternFinder link check)'})
+            with urllib.request.urlopen(req, timeout=12) as r: return u, r.status
+        except urllib.error.HTTPError as e: return u, e.code
+        except Exception: return u, 0
+    todo = [r[8] for r in L if r[10] != 'p' and not FEED.search(r[8]) and r[8] not in dead]
+    with ThreadPoolExecutor(max_workers=24) as ex:
+        for u, code in ex.map(_check, todo):
+            if code in (404, 410): dead[u] = int(_now)
+    print(f'link check: {len(todo)} company-site links checked, {len(dead)} known dead')
+
+before = len(L); counts = collections.Counter()
+keep = []
+for r in L:
+    while len(r) < 16: r.append('')
+    text = r[1] + ' ' + (r[9] or '') + ' ' + json.dumps(S.get(r[8], ''))
+    if JUNK.search(r[1]): counts['junk'] += 1; continue
+    if _past(r[3]): counts['season over'] += 1; continue
+    if r[8] in dead: counts['dead link'] += 1; continue
+    if r[10] != 'p' and not FEED.search(r[8]) and r[7] and _now - r[7] > 120 * 86400: counts['stale list entry'] += 1; continue
+    r[15] = 'u' if UNPAID.search(text) else ''
+    keep.append(r)
+L[:] = keep
+print(f'quality filters removed {before - len(L)}: {dict(counts)}; {sum(1 for r in L if r[15]=="u")} marked unpaid')
+
 prev_urls = {r[8] for r in prev.get('listings', [])} if prev else set()
 added = [r[8] for r in L if prev_urls and r[8] not in prev_urls]
 used = {r[8] for r in L}
 summ = {u: v for u, v in S.items() if u in used}
-if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)) and prev.get('summaries') == summ and prev.get('domains') == domains:
+if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)) and prev.get('summaries') == summ and prev.get('domains') == domains and (prev.get('dead') or {}) == dead:
     print('No listing changes; data.json left as is')
     raise SystemExit(0)
 
@@ -121,7 +163,7 @@ if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)
 dumps = lambda o: json.dumps(o, separators=(',', ':'), ensure_ascii=False)
 os.makedirs('../public', exist_ok=True)
 with open(OUT, 'w') as f:
-    f.write('{"asof":%d,\n"added":%s,\n"domains":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(domains), dumps(summ)))
+    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"domains":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(domains), dumps(summ)))
     f.write(',\n'.join(dumps(r) for r in L))
     f.write('\n]}\n')
 print(f'{len(added)} new since last update; {len(L)} listings, {len(urls)} companies, {len(domains)} with a known domain, '
