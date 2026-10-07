@@ -5,6 +5,9 @@ on:
   workflow_dispatch:         # lets you run it by hand from the Actions tab
 permissions:
   contents: write
+concurrency:          # one refresh at a time; a second one waits instead of colliding
+  group: refresh
+  cancel-in-progress: false
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -30,7 +33,7 @@ jobs:
           git clean -qfd intern-finder/pipeline 2>/dev/null || true
           for i in 1 2 3; do
             t0=$(date +%s)
-            if ! out=$(timeout 60 git pull -q --rebase origin main 2>&1); then step="pull (exit $?, $(( $(date +%s)-t0 ))s)"
+            if ! out=$(timeout 60 git pull -q --rebase -X theirs origin main 2>&1); then step="pull (exit $?, $(( $(date +%s)-t0 ))s)"
             elif ! out=$(timeout 90 git push -q origin HEAD:main 2>&1); then step="push (exit $?, $(( $(date +%s)-t0 ))s)"
             else echo "Pushed in $(( $(date +%s)-t0 ))s"; exit 0; fi
             echo "Attempt $i: $step failed: $out"; git rebase --abort 2>/dev/null || true; sleep $((i*10))
