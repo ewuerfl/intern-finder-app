@@ -84,6 +84,12 @@ for rows in _groups.values():
 print(f'merged {len(L) - len(_merged)} duplicate postings that share a job link')
 L[:] = _merged
 
+# Fortune 500 companies the brand list doesn't know (or underrates) get a floor based on their rank
+import tiers
+from f500 import brand_floor
+for co in {NAME.get(r[0], r[0]) for r in L}:
+    f = brand_floor(co)
+    if f and (tiers.score(co) or 0) < f: tiers.T[co.strip().lower()] = f
 urls = collections.defaultdict(list)
 for r in L:
     r[0] = NAME.get(r[0], r[0])
@@ -121,21 +127,64 @@ def _past(terms):
     ts = [x.split() for x in terms if len(x.split()) == 2 and x.split()[1].isdigit()]
     return bool(ts) and all((int(y), end.get(s, 12)) < (today.year, today.month) for s, y in ts)
 
-# Dead links: company-site links (not live job feeds) are checked every few hours; a 404/410 removes the job for 14 days.
+# Dead links. Jobs read straight from a company's job feed this run are live by definition. Everything else
+# (jobs from the GitHub lists, company career pages) gets checked: each new job right away, and every other
+# job about once a day (1/8 of them on each 3-hourly full run). Gone (404/410, or the job board says the posting
+# doesn't exist) removes the job for 14 days.
+import hashlib, threading
 dead = {u: ts for u, ts in (prev.get('dead') or {}).items() if _now - ts < 14 * 86400} if prev else {}
 FULL = os.environ.get('GITHUB_EVENT_NAME') != 'schedule' or datetime.datetime.utcnow().hour % 3 == 0
-if FULL and os.environ.get('GITHUB_ACTIONS'):
-    def _check(u):
-        try:
-            req = urllib.request.Request(u, method='GET', headers={'User-Agent': 'Mozilla/5.0 (compatible; InternFinder link check)'})
-            with urllib.request.urlopen(req, timeout=12) as r: return u, r.status
-        except urllib.error.HTTPError as e: return u, e.code
-        except Exception: return u, 0
-    todo = [r[8] for r in L if r[10] != 'p' and not FEED.search(r[8]) and r[8] not in dead]
-    with ThreadPoolExecutor(max_workers=24) as ex:
-        for u, code in ex.map(_check, todo):
-            if code in (404, 410): dead[u] = int(_now)
-    print(f'link check: {len(todo)} company-site links checked, {len(dead)} known dead')
+live = set()
+if FULL and os.path.exists('ats.json'):
+    try: live = {_job_key(x[4]) for x in json.load(open('ats.json'))}
+    except Exception: pass
+GONE_URL = re.compile(r'[?&]error=true|/404\b|not[-_]?found|job[-_]?(closed|expired|unavailable)|posting[-_]?(closed|expired)|no[-_]longer[-_]available', re.I)
+WD_CHECK = threading.Semaphore(6)
+
+def _get(u, accept='text/html,application/json'):
+    req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (compatible; InternFinder link check)', 'Accept': accept})
+    with urllib.request.urlopen(req, timeout=12) as r:
+        return r.status, r.geturl(), r.read(200000).decode('utf-8', 'replace')
+
+def _gone(u):
+    """True = posting no longer exists, False = it's there, None = couldn't tell (kept)."""
+    p = urllib.parse.urlparse(u); h = (p.hostname or '').lower(); path = p.path
+    try:
+        if h.endswith('myworkdayjobs.com') and '/job/' in path:
+            parts = [x for x in path.split('/') if x]
+            if re.fullmatch(r'[a-z]{2}-[A-Z]{2}', parts[0]): parts = parts[1:]
+            site, rest = parts[0], path.split('/job/', 1)[1]
+            with WD_CHECK:
+                st, _, body = _get(f'https://{h}/wday/cxs/{h.split(".")[0]}/{site}/job/{rest}', 'application/json')
+            return 'jobPostingInfo' not in body
+        m = re.search(r'greenhouse\.io/([^/]+)/jobs/(\d+)', u)
+        if m:
+            _get(f'https://boards-api.greenhouse.io/v1/boards/{m.group(1)}/jobs/{m.group(2)}', 'application/json'); return False
+        m = re.search(r'jobs\.smartrecruiters\.com/([^/]+)/(\d+)', u)
+        if m:
+            _get(f'https://api.smartrecruiters.com/v1/companies/{m.group(1)}/postings/{m.group(2)}', 'application/json'); return False
+        if 'ashbyhq.com' in h: return None          # Ashby pages always load; its feed covers these
+        st, final, body = _get(u)
+        if final != u and GONE_URL.search(final): return True
+        if re.search(r"(job|posting|position|page)( you are looking for)? (is no longer available|has been (closed|filled|removed)|doesn.t exist|does not exist|could not be found|was not found)", body[:200000], re.I):
+            return True
+        return False
+    except urllib.error.HTTPError as e:
+        return True if e.code in (404, 410) else None
+    except Exception:
+        return None
+
+if os.environ.get('GITHUB_ACTIONS'):
+    slot = datetime.datetime.utcnow().hour // 3 % 8
+    prev_urls0 = {r[8] for r in prev.get('listings', [])} if prev else set()
+    todo = [r[8] for r in L if r[10] != 'p' and r[8] not in dead and _job_key(r[8]) not in live
+            and (r[8] not in prev_urls0 or (FULL and int(hashlib.md5(r[8].encode()).hexdigest(), 16) % 8 == slot))]
+    t0 = _time.time(); n = gone = 0
+    with ThreadPoolExecutor(max_workers=32) as ex:
+        for u, g in zip(todo, ex.map(lambda u: None if _time.time() - t0 > 180 else _gone(u), todo)):
+            n += 1
+            if g: dead[u] = int(_now); gone += 1
+    print(f'link check: {len(todo)} links checked ({len(live)} live from job feeds), {gone} gone now, {len(dead)} known dead, {_time.time()-t0:.0f}s')
 
 before = len(L); counts = collections.Counter()
 keep = []
@@ -145,7 +194,7 @@ for r in L:
     if JUNK.search(r[1]): counts['junk'] += 1; continue
     if _past(r[3]): counts['season over'] += 1; continue
     if r[8] in dead: counts['dead link'] += 1; continue
-    if r[10] != 'p' and not FEED.search(r[8]) and r[7] and _now - r[7] > 120 * 86400: counts['stale list entry'] += 1; continue
+    if r[10] != 'p' and _job_key(r[8]) not in live and not FEED.search(r[8]) and r[7] and _now - r[7] > 120 * 86400: counts['stale list entry'] += 1; continue
     r[15] = 'u' if UNPAID.search(text) else ''
     keep.append(r)
 L[:] = keep
