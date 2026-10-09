@@ -317,6 +317,7 @@ body{margin:0}
 .acct-msg{font-size:13px;color:var(--accent)}
 .acct-msg:empty{display:none}
 .rhow{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.selk{display:grid;gap:4px;font:600 12px var(--body);color:var(--muted);margin-top:8px}.selk select{font:500 14px var(--body);padding:7px 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -369,7 +370,7 @@ body{margin:0}
         <label class="f"><span>Year</span>
           <select id="year"></select></label>
         <label class="f kw"><span>Keywords, company or location</span>
-          <input type="text" id="kw" placeholder="e.g. GPU, accounting, Miami, remote" autocomplete="off"></label>
+          <input type="text" id="kw" placeholder="e.g. NVIDIA California, accounting TX, remote GPU" autocomplete="off"></label>
         <div class="go"><button class="btn" type="submit">Search</button></div>
       </div>
       <div class="quick" id="quick"><small>Try:</small></div>
@@ -424,6 +425,7 @@ body{margin:0}
       <fieldset><legend>Work setting</legend>
         <label class="ck"><input type="checkbox" id="remote"> Remote only</label>
         <label class="ck"><input type="checkbox" id="usonly"> U.S. locations only</label>
+        <label class="selk">State<select id="loc"></select></label>
       </fieldset>
       <fieldset><legend>Quality</legend>
         <label class="ck"><input type="checkbox" id="paidonly" checked> Hide unpaid</label>

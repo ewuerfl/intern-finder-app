@@ -243,7 +243,7 @@ const MAJORS=[
   ['Applied Physiology / Sports Medicine',['Healthcare','Sports','Science'],['athletic','physiology','sports medicine']],['Community and Applied Psychological Studies',['Nonprofit','Healthcare','Education'],['community','psych']],
   ['Data Analytics and Intelligence for Social Impact',['AI/ML/Data','Nonprofit'],['data','analytics']],['Elementary / Exceptional Student Education',['Education','Nonprofit'],['teach']],['Sports Administration',['Sports','Business','Marketing'],['sports']],["Early Childhood Education",["Education", "Nonprofit"],["teach", "child", "youth"]],["Secondary Education",["Education"],["teach"]],["Special Education",["Education", "Healthcare"],["teach", "special"]],["Kinesiology / Exercise Science",["Healthcare", "Sports", "Science"],["exercise", "athletic", "fitness", "strength"]],["Recreation & Parks Management",["Nonprofit", "Sports", "Environment"],["recreation", "parks", "camp"]]]],
  ['Engineering & Computing',[
-  ['Aerospace Engineering',['Mechanical','Engineering'],[]],['Architectural Engineering',['Engineering','RealEstate'],['building','structural','mep']],['Biomedical Engineering',['Engineering','Science','Healthcare'],['medical','biomedical','device']],
+  ['Aerospace Engineering',['Mechanical','Engineering'],['aerospace','aero','aeronaut','astronaut','aircraft','airframe','flight','propulsion','avionics','space','spacecraft','satellite','rocket','launch','orbital','uav','drone','gnc','guidance','hypersonic','turbine','jet engine','missile','aviation','wind tunnel','aerodynamic','composites','structures']],['Architectural Engineering',['Engineering','RealEstate'],['building','structural','mep']],['Biomedical Engineering',['Engineering','Science','Healthcare'],['medical','biomedical','device']],
   ['Chemical Engineering',['Engineering','Science'],['chemical','process']],['Civil / Environmental Engineering',['Engineering','Environment','RealEstate'],['civil','environmental','water']],['Computer Engineering',['Hardware','Software','AI/ML/Data'],[]],
   ['Electrical Engineering',['Hardware','Engineering'],[]],['Engineering Science',['Engineering','Mechanical','Hardware'],[]],['Industrial Engineering',['Engineering','Business'],['industrial','manufactur','operations']],
   ['Innovation, Technology and Design',['Product','Engineering'],['design','prototype']],['Mechanical Engineering',['Mechanical','Engineering'],[]],['Software Engineering',['Software','IT'],[]],["Data Science",["AI/ML/Data", "Software"],["data"]],["Cybersecurity",["IT", "Software"],["security", "cyber"]],["Information Technology",["IT", "Software"],["network", "support", "systems"]],["Materials Science & Engineering",["Engineering", "Science", "Hardware"],["materials", "metallurg", "process"]],["Nuclear Engineering",["Engineering", "Environment"],["nuclear", "reactor"]],["Petroleum Engineering",["Engineering", "Environment"],["petroleum", "drilling", "reservoir", "energy"]],["Systems Engineering",["Engineering", "Mechanical", "Hardware"],["systems"]],["Robotics Engineering",["Mechanical", "Hardware", "AI/ML/Data"],["robot", "autonomy"]],["Aviation / Aeronautics",["Mechanical", "Hospitality"],["aviation", "flight", "airline", "aircraft"]],["Agricultural Engineering",["Engineering", "Environment"],["agri", "irrigation"]]]],
@@ -265,6 +265,9 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const counts={};L.forEach(x=>x.cats.forEach(c=>counts[c]=(counts[c]||0)+1));
 $('field').innerHTML='<option value="">Any field</option>'+FIELDS.map(([g,fs])=>`<optgroup label="${esc(g)}">`+fs.map(([k,v])=>`<option value="${esc(k)}">${esc(v)} (${(counts[k]||0).toLocaleString()})</option>`).join('')+'</optgroup>').join('');
+// Companies whose engineering internships count as aerospace even when the title doesn't say so
+const AERO_CO=/\b(spacex|blue origin|boeing|lockheed|northrop|rtx|raytheon|pratt|collins aerospace|ge aerospace|general dynamics|gulfstream|textron|bell|sierra space|rocket lab|relativity|firefly|axiom|vast|astranis|planet|anduril|shield ai|joby|archer|wisk|beta technologies|nasa|jpl|jet propulsion|aerospace corporation|honeywell aerospace|l3harris|bae systems|embraer|airbus|safran|rolls-royce|spirit aerosystems|textron aviation|cirrus|piper|ula|united launch|virgin galactic|varda|stoke space|hermeus|boom supersonic|zipline|skydio|ball aerospace|maxar|york space|terran orbital|aerojet|kratos|general atomics|leidos|draper)\b/i;
+const CO_RE={'Aerospace Engineering':AERO_CO,'Aviation / Aeronautics':AERO_CO};
 const MAJ={};MAJORS.forEach(([sch,ms])=>ms.forEach(([n,f,k])=>MAJ[n]={f,k,re:k.length?new RegExp('\\b('+k.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+(w.length<=3?'\\b':'')).join('|')+')','i'):null}));
 $('major').innerHTML='<option value="">Choose your major…</option>'+MAJORS.map(([sch,ms])=>`<optgroup label="${esc(sch)}">`+ms.map(([n])=>`<option>${esc(n)}</option>`).join('')+'</optgroup>').join('');
 $('asof').textContent='Updated '+new Date(window.LISTINGS_ASOF*1000).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' · refreshes hourly';
@@ -273,19 +276,44 @@ $('year').innerHTML='<option value="">Any year</option>'+years.map(y=>`<option>$
 const DEG=["Bachelor's","Master's","PhD","Associate's"];
 $('degrees').insertAdjacentHTML('beforeend',DEG.map((d,i)=>`<label class="ck"><input type="checkbox" id="deg${i}" value="${d}"> ${d}</label>`).join(''));
 
-const US=/(,\s?[A-Z]{2}$)|United States|USA|\bUS\b|Remote in USA/;
-let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[],paidonly:true,known:false,f500:false};
+/* ---- Locations: which U.S. state (or other country) each listing is in ---- */
+const STATES={AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',PR:'Puerto Rico'};
+const ST_BY_NAME=Object.fromEntries(Object.entries(STATES).map(([c,n])=>[n.toLowerCase(),c]));
+const ST_NAME_RE=new RegExp('\\b('+Object.values(STATES).map(n=>n.toLowerCase()).sort((a,b)=>b.length-a.length).join('|')+')\\b','g');
+const CITY_ST={'nyc':'NY','new york city':'NY','manhattan':'NY','brooklyn':'NY','sf':'CA','south sf':'CA','san francisco':'CA','bay area':'CA','la':'CA','los angeles':'CA','san jose':'CA','palo alto':'CA','mountain view':'CA','sunnyvale':'CA','santa clara':'CA','menlo park':'CA','san diego':'CA','irvine':'CA','el segundo':'CA','cupertino':'CA','seattle':'WA','redmond':'WA','bellevue':'WA','boston':'MA','chicago':'IL','austin':'TX','houston':'TX','dallas':'TX','atlanta':'GA','miami':'FL','denver':'CO','boulder':'CO','pittsburgh':'PA','philadelphia':'PA','cincinnati':'OH','detroit':'MI','phoenix':'AZ','washington dc':'DC','washington, dc':'DC','d.c.':'DC','nashville':'TN','minneapolis':'MN','salt lake city':'UT','raleigh':'NC','charlotte':'NC','portland':'OR'};
+const FOREIGN=/\b(canada|ontario|quebec|british columbia|alberta|united kingdom|england|scotland|wales|ireland|london|india|bangalore|bengaluru|hyderabad|pune|singapore|france|paris|germany|berlin|munich|netherlands|amsterdam|spain|madrid|italy|milan|switzerland|zurich|geneva|china|shanghai|beijing|shenzhen|hong kong|japan|tokyo|korea|seoul|taiwan|taipei|australia|sydney|melbourne|new zealand|mexico city|brazil|israel|tel aviv|poland|sweden|denmark|finland|norway|belgium|austria|vienna, austria|portugal|lisbon|dublin|toronto|vancouver|montreal|ottawa|waterloo|calgary|edmonton|winnipeg|halifax|mississauga|malaysia|kuala lumpur|thailand|vietnam|philippines|indonesia|jakarta|uae|dubai|luxembourg|brussels|brno|czech|peru|colombia|bogota|eindhoven|mallorca|sgp|chile|argentina|costa rica|egypt|south africa|nigeria|kenya|turkey|istanbul|greece|hungary|budapest|romania|bucharest|prague|warsaw|krakow|stockholm|copenhagen|oslo|helsinki|edinburgh|manchester|cambridge, uk|oxford, uk|belfast|cork|galway)\b/i;
+const FOREIGN_CODE=/(,|\s|-)\s*(UK|GB|ON|BC|QC|AB|SK|MB|NS|IE|SG|IN, India|DE|FR|NL|ES|IT|CH|CN|JP|KR|TW|AU|NZ|MX|BR|IL|PL|SE|HK|MY|TH|VN|PH)\s*$/;
+function locState(l){
+  const t=l.replace(/\((\+\d+|headquarters|hq|hybrid|on-?site)\)/ig,'').trim();if(!t)return null;
+  if(/\b(AB|BC|ON|QC|MB|SK|NS|NB|NL|PE)\s*,\s*CA(N|NADA)?\b/.test(t))return 'X';
+  const lead=t.match(/^([A-Z]{2})[\s-]+[A-Z][a-z]/);if(lead&&STATES[lead[1]])return lead[1];
+  if(/\bdistrict of columbia\b|washington,?\s*d\.?c\b/i.test(t))return 'DC';
+  if(/\bvienna\b/i.test(t)&&!/,\s*VA\b|virginia/i.test(t))return 'X';
+  const parts=t.split(/\s*[,|/–-]\s*|\s+(?=USA$|United States$)/).map(x=>x.trim()).filter(Boolean);
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];
+    if(/^[A-Z]{2}$/.test(p)&&STATES[p]&&!(p==='IN'&&/\bindia\b/i.test(t))&&!(i===0&&parts.length>1))return p;
+    const n=ST_BY_NAME[p.toLowerCase()];if(n&&!(n==='GA'&&/tbilisi/i.test(t))&&!(n==='WA'&&i===0&&parts.length>1&&ST_BY_NAME[(parts[1]||'').toLowerCase()]))return n;}
+  if(FOREIGN.test(t)||FOREIGN_CODE.test(t))return 'X';
+  const low=t.toLowerCase();
+  for(const [c,st] of Object.entries(CITY_ST))if(low===c||low.startsWith(c+' ')||low.startsWith(c+','))return st;
+  if(/united states|\busa\b|\bu\.s\.?\b|^us\b|\bus$|remote in us/i.test(t))return 'US';
+  return null;
+}
+$('loc').innerHTML='<option value="">Anywhere</option><option value="REMOTE">Remote</option>'+Object.entries(STATES).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>`<option value="${c}">${n}</option>`).join('')+'<option value="X">Outside the U.S.</option>';
+const US={test:l=>{const c=locState(l);return !!c&&c!=='X'}};
+L.forEach(x=>{x.st=new Set(x.locs.map(locState).filter(Boolean))});
+let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[],paidonly:true,known:false,f500:false,loc:''};
 try{const s=localStorage.getItem('if-sort');if(s)state.sort=s}catch(e){} // every visit starts with a clear search; only the sort order is remembered
 if(state.field&&!CAT[state.field])state.field='';if(state.major&&!MAJ[state.major])state.major='';
 
 function apply(){
   $('major').value=state.major;$('field').value=state.field;$('season').value=state.season;$('year').value=years.includes(state.year)?state.year:'';
-  $('kw').value=state.kw;$('sort').value=state.sort;$('remote').checked=state.remote;$('usonly').checked=state.usonly;$('nocit').checked=state.nocit;$('paidonly').checked=state.paidonly;$('known').checked=state.known;$('f500').checked=state.f500;
+  $('kw').value=state.kw;$('sort').value=state.sort;$('remote').checked=state.remote;$('usonly').checked=state.usonly;$('nocit').checked=state.nocit;$('paidonly').checked=state.paidonly;$('known').checked=state.known;$('f500').checked=state.f500;$('loc').value=state.loc;
   DEG.forEach((d,i)=>$('deg'+i).checked=state.deg.includes(d));
 }
 function read(){
   state.major=$('major').value;state.field=$('field').value;state.season=$('season').value;state.year=$('year').value;state.kw=$('kw').value.trim();
-  state.sort=$('sort').value;state.remote=$('remote').checked;state.usonly=$('usonly').checked;state.nocit=$('nocit').checked;state.paidonly=$('paidonly').checked;state.known=$('known').checked;state.f500=$('f500').checked;
+  state.sort=$('sort').value;state.remote=$('remote').checked;state.usonly=$('usonly').checked;state.nocit=$('nocit').checked;state.paidonly=$('paidonly').checked;state.known=$('known').checked;state.f500=$('f500').checked;state.loc=$('loc').value;
   state.deg=DEG.filter((d,i)=>$('deg'+i).checked);
   try{localStorage.setItem('if-sort',state.sort)}catch(e){}
 }
@@ -295,7 +323,10 @@ function termOk(x){
 }
 function sideOk(x){
   if(state.remote&&!x.locs.some(l=>/remote/i.test(l)))return false;
-  if(state.usonly&&!x.locs.some(l=>US.test(l)))return false;
+  if(state.usonly&&![...x.st].some(c=>c!=='X'))return false;
+  if(state.loc){if(state.loc==='REMOTE'){if(!x.locs.some(l=>/remote/i.test(l)))return false}
+    else if(state.loc==='X'){if(!x.st.has('X'))return false}
+    else if(!x.st.has(state.loc))return false}
   if(state.nocit&&x.sp==='cit')return false;
   if(state.paidonly&&x.unpaid)return false;
   if(state.known&&!x.prog&&x.brand<5)return false;
@@ -326,7 +357,7 @@ function relevance(x){
     return 0;
   }
   const m=MAJ[state.major];if(!m)return 1;
-  const kw=!!(m.re&&m.re.test(x.title));
+  const kw=!!(m.re&&m.re.test(x.title))||!!(CO_RE[state.major]&&CO_RE[state.major].test(x.co)&&TECHRE.test(x.title));
   const p=m.f[0];
   let s=0;
   if(main===p)s=6;
@@ -336,12 +367,33 @@ function relevance(x){
   if(kw&&s)s+=4;
   return s;
 }
+// "NVIDIA California", "software engineer TX", "remote data" -> words to find + location filters
+let _kwq=null,_kwqFor=null;
+function KWQ(){
+  if(_kwqFor===state.kw)return _kwq;
+  let raw=state.kw,low=raw.toLowerCase();const states=[];let remote=false;
+  low=low.replace(/\bwashington,?\s*d\.?c\.?(?=\s|$)/g,()=>{states.push('DC');return ' '});
+  low=low.replace(ST_NAME_RE,m=>{states.push(ST_BY_NAME[m]);return ' '});
+  // two-letter codes: only typed in capitals ("TX") or after a comma ("nvidia, ca"), so "in"/"or"/"me" stay words
+  const toks=raw.replace(/\bwashington,?\s*d\.?c\.?/ig,' ').split(/\s+/);
+  low=low.split(/\s+/).filter((w,i,arr)=>{
+    const orig=(raw.match(new RegExp('(^|[\\s,])('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')(?=$|[\\s,])','i'))||[])[2]||'';
+    const code=w.replace(/[,.]/g,'').toUpperCase();
+    if(code.length===2&&STATES[code]&&(/^[A-Z]{2},?$/.test(orig)||new RegExp(',\\s*'+code+'\\b','i').test(raw))){states.push(code);return false}
+    if(w==='remote'){remote=true;return false}
+    return true}).join(' ');
+  const words=low.replace(/,/g,' ').split(/\s+/).filter(w=>w&&!['in','near','at','the'].includes(w)||false);
+  _kwqFor=state.kw;_kwq={states,remote,words};return _kwq;
+}
 function matches(x){
   if(newOnly&&!ADDED.has(x.url))return false;
   x.rel=(state.field||state.major)?relevance(x):0;
   if((state.field||state.major)&&!x.rel)return false;
   if(!termOk(x))return false;
-  if(state.kw){const words=state.kw.toLowerCase().split(/\s+/);if(!words.every(w=>x.hay.includes(w)))return false}
+  if(state.kw){const q=KWQ();
+    if(q.states.length&&!q.states.some(c=>x.st.has(c)))return false;
+    if(q.remote&&!x.locs.some(l=>/remote/i.test(l)))return false;
+    if(!q.words.every(w=>x.hay.includes(w)))return false}
   return sideOk(x);
 }
 const HUES=[212,262,188,330,24,150,280,4,48,120,232,350,170,300,36,200];
@@ -646,7 +698,7 @@ $('search').addEventListener('submit',e=>{e.preventDefault();if(searching)return
   b.innerHTML='<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
   setTimeout(()=>{run();showResults();b.classList.remove('busy');b.textContent='Search';b.removeAttribute('aria-label');searching=false},quick?150:750);
 });
-['season','year','sort','remote','usonly','nocit','paidonly','known','f500',...DEG.map((d,i)=>'deg'+i)].forEach(id=>$(id).addEventListener('change',run));
+['season','year','sort','remote','usonly','nocit','paidonly','known','f500','loc',...DEG.map((d,i)=>'deg'+i)].forEach(id=>$(id).addEventListener('change',run));
 $('more').addEventListener('click',page);
 $('major').addEventListener('change',()=>{$('field').value='';run()});
 $('field').addEventListener('change',()=>{if($('field').value)$('major').value='';run()});
