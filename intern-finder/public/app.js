@@ -270,7 +270,7 @@ const AERO_CO=/\b(spacex|blue origin|boeing|lockheed|northrop|rtx|raytheon|pratt
 const CO_RE={'Aerospace Engineering':AERO_CO,'Aviation / Aeronautics':AERO_CO};
 const MAJ={};MAJORS.forEach(([sch,ms])=>ms.forEach(([n,f,k])=>MAJ[n]={f,k,re:k.length?new RegExp('\\b('+k.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+(w.length<=3?'\\b':'')).join('|')+')','i'):null}));
 $('major').innerHTML='<option value="">Choose your major…</option>'+MAJORS.map(([sch,ms])=>`<optgroup label="${esc(sch)}">`+ms.map(([n])=>`<option>${esc(n)}</option>`).join('')+'</optgroup>').join('');
-$('asof').textContent='Updated '+new Date(window.LISTINGS_ASOF*1000).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' · refreshes hourly';
+$('asof').textContent='Updated '+new Date(window.LISTINGS_ASOF*1000).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'';
 const years=[...new Set(L.flatMap(x=>x.terms.map(t=>t.split(' ')[1])))].sort();
 $('year').innerHTML='<option value="">Any year</option>'+years.map(y=>`<option>${y}</option>`).join('');
 const DEG=["Bachelor's","Master's","PhD","Associate's"];
@@ -390,6 +390,7 @@ function matches(x){
   x.rel=(state.field||state.major)?relevance(x):0;
   if((state.field||state.major)&&!x.rel)return false;
   if(!termOk(x))return false;
+  if(state._any&&!state._any.some(w=>x.hay.includes(w)))return false;
   if(state.kw){const q=KWQ();
     if(q.states.length&&!q.states.some(c=>x.st.has(c)))return false;
     if(q.remote&&!x.locs.some(l=>/remote/i.test(l)))return false;
@@ -639,6 +640,35 @@ function setView(v){
   $('sortWrap').hidden=v!=='all';$('elsewhere').hidden=v!=='all';render();
 }
 function run(){read();setView('all')}
+/* No results: loosen the search one step at a time and show the first version that finds something */
+function _lev(a,b){const d=Array.from({length:a.length+1},(_,i)=>[i]);for(let j=1;j<=b.length;j++)d[0][j]=j;
+  for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+let _cos=null;
+function suggest(){
+  const saved=JSON.stringify(state),restore=()=>{delete state._any;Object.assign(state,JSON.parse(saved));_kwqFor=null};
+  const sortRel=a=>a.sort((x,y)=>((y.rel||0)-(x.rel||0))||(y.rt-x.rt)*0.6+(y.t-x.t)/864000);
+  const tryIt=(why,change)=>{change();_kwqFor=null;const l=L.filter(matches);restore();return l.length?{why,list:sortRel(l)}:null};
+  const term=[state.season,state.year].filter(Boolean).join(' ');
+  const q=state.kw?KWQ():{states:[],remote:false,words:[]};
+  const side=['usonly','remote','known','f500'].filter(k=>state[k]).length||state.loc||state.deg.length;
+  const steps=[];
+  // a misspelled company name: "nvida" -> NVIDIA
+  if(q.words.length){_cos=_cos||[...new Set(L.map(x=>x.co))];
+    const fixed=q.words.map(w=>{if(w.length<4||L.some(x=>x.hay.includes(w)))return w;
+      let best=null,bd=9;for(const c of _cos){for(const t of c.toLowerCase().split(/\s+/)){const dd=_lev(w,t);if(dd<bd){bd=dd;best=t}}}
+      return bd<=Math.max(1,Math.floor(w.length/4))?best:w});
+    if(fixed.join(' ')!==q.words.join(' ')){const kw2=state.kw.toLowerCase().replace(new RegExp(q.words.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g'),m=>fixed[q.words.indexOf(m)]);
+      steps.push([`for “${kw2}”`,()=>{state.kw=kw2}])}}
+  if(term)steps.push([`for any season (nothing for ${term})`,()=>{state.season='';state.year=''}]);
+  if(side)steps.push(['without your sidebar filters',()=>{state.usonly=state.remote=state.known=state.f500=false;state.loc='';state.deg=[]}]);
+  if(q.states.length)steps.push([`for “${q.words.join(' ')}” in any location`,()=>{state.kw=q.words.join(' ')}]);
+  if(q.states.length&&term)steps.push([`for “${q.words.join(' ')}” in any location and any season`,()=>{state.kw=q.words.join(' ');state.season='';state.year=''}]);
+  if(q.words.length>1)steps.push([`matching some of your words (“${q.words.join('”, “')}”)`,()=>{state.kw='';state._any=q.words}]);
+  if(state.kw&&(state.major||state.field))steps.push([`for “${state.kw}” in every field`,()=>{state.major='';state.field=''}]);
+  if(state.kw&&(state.major||state.field)&&term)steps.push([`for “${state.kw}” in every field and season`,()=>{state.major='';state.field='';state.season='';state.year=''}]);
+  for(const [why,ch] of steps){const r=tryIt(why,ch);if(r)return r}
+  return null;
+}
 function render(){
   shown=0;$('list').innerHTML='';
   if(view==='apps'){renderApps();return}
@@ -651,7 +681,9 @@ function render(){
   if(state.sort==='rel')results.sort((a,b)=>((b.rel||0)-(a.rel||0))||(b.rt-a.rt)*0.6+(b.t-a.t)/864000);else if(state.sort==='co')results.sort((a,b)=>a.co.localeCompare(b.co)||b.t-a.t);else if(state.sort==='rt')results.sort((a,b)=>b.rt-a.rt||b.t-a.t);else results.sort((a,b)=>b.t-a.t);
   const what=[state.field?CAT[state.field]:state.major?state.major+' ('+MAJ[state.major].f.map(c=>CAT[c]).join(', ')+')':'All fields',[state.season,state.year].filter(Boolean).join(' ')||'any term'].join(' · ');
   $('count').innerHTML=(newOnly?`<b>${results.length.toLocaleString()}</b> new${f5New?' Fortune 500 jobs':''} since the last update <button type="button" class="chip" id="newOff">Show all jobs ×</button>`:`<b>${results.length.toLocaleString()}</b> internships · ${esc(what)}${state.kw?' · “'+esc(state.kw)+'”':''}`);
-  if(!results.length)$('list').innerHTML='<div class="empty">No open listings match. Try a different season or year, a broader field, or clear the keywords.</div>';
+  if(!results.length&&!newOnly){const sg=suggest();
+    if(sg){results=sg.list;$('list').innerHTML=`<div class="suggest"><b>No exact matches.</b> Suggested results ${esc(sg.why)}:</div>`}
+    else $('list').innerHTML='<div class="empty">No open listings match. Try a different season or year, a broader field, or clear the keywords.</div>'}
   page();elsewhere();
   syncFieldChips();syncStudy();renderQuick();renderNewPill();renderF500();
 }
