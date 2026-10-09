@@ -956,14 +956,19 @@ function pastBlock(){
   const left=PAST.filter(p=>!APPS[appKey(p.job?p.job.url:p.mail)]);
   if(!left.length)return `<div class="past-bar"><span>${PAST.length?'Everything we found in your email is in your list.':'No past applications found in your email.'}</span><button type="button" class="copy" id="pastScan">Check again</button></div>`;
   const row=p=>{const i=PAST.indexOf(p);
-    return `<div class="past-row"><div class="past-main"><b>${esc(p.co)}</b> <span>${esc(p.title)}</span>
-      <small>${p.job?'Matched to a listing on Intern Finder':'Exact posting not on Intern Finder'} · ${esc(p.status==='Applied'?'Application received':p.status)}${p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''} · <a href="${esc(p.mail)}" target="_blank" rel="noopener">email ↗</a></small></div>
-      <button type="button" class="copy past-add" data-i="${i}">Add</button></div>`};
+    const when=p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
+    const st=`<span class="tag ${p.status==='Rejected'?'warn':p.status==='Applied'?'term':'good'}">${esc(p.status==='Applied'?'Application received':p.status)}</span>`;
+    const bar=`<div class="past-meta">${st}<span>From your email${when} · <a href="${esc(p.mail)}" target="_blank" rel="noopener">open email ↗</a></span><button type="button" class="copy past-add" data-i="${i}">Add to My applications</button></div>`;
+    if(p.job)return `<div class="past-item">${bar}${card(p.job)}</div>`;
+    return `<div class="past-item">${bar}<div class="item"><div class="sumlike">${logo(p.co)}<span class="body"><span class="coline"><span class="cn">${esc(p.co)}</span></span>
+      <span class="title">${esc(p.title)}</span><span class="facts"><span>This exact posting isn't on Intern Finder</span></span></span></div></div></div>`};
   const m=left.filter(p=>p.job),o=left.filter(p=>!p.job);
-  return `<div class="past"><div class="past-head"><b>Found in your email (${left.length})</b><span>Applications you sent before using Intern Finder. Add the ones that are right.</span>
+  return `<div class="past-head"><b>Found in your email (${left.length})</b><span>Applications you sent before using Intern Finder. Add the ones that are right.</span>
       <button type="button" class="copy" id="pastAll">Add all ${left.length}</button></div>
-    ${m.map(row).join('')}${o.length?`<div class="past-sub">Not on Intern Finder (added with a link to the email)</div>${o.map(row).join('')}`:''}</div>`;
+    ${m.map(row).join('')}${o.length?`<div class="past-sub">Not on Intern Finder (added with a link to the email)</div>${o.map(row).join('')}`:''}
+    ${apps_divider()}`;
 }
+function apps_divider(){return Object.keys(APPS).length?'<div class="past-sub">Your tracked applications</div>':''}
 function addPast(p){
   const url=p.job?p.job.url:p.mail,x=p.job||{};
   const ts=p.date?Date.parse(p.date)||Date.now():Date.now();
