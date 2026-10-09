@@ -937,7 +937,6 @@ async function scanPast(){
       const job=bs>=0.6?best:null;
       const co=job?job.co:coIndex().byKey.get(ck)[0].co;
       const key=job?job.url:co.toLowerCase()+'|'+(et||m.subject||'').toLowerCase();
-      if(APPS[appKey(job?job.url:th.viewUrl)])continue;                 // already tracked
       const status=sig&&sig!=='Received'?sig:'Applied';
       const it={key,job,co,title:job?job.title:(et||decode(m.subject||'')),status,date:m.date||'',mail:th.viewUrl,subject:decode(m.subject||'')};
       const g=out.get(key);
@@ -947,13 +946,31 @@ async function scanPast(){
   }catch(e){pastState='error';pastErr=e&&e.code==='needs_reauth'?'Google sign-in was closed or expired. Try again and allow read-only access.':'Could not check your email. Try again.'}
   if(view==='apps')renderApps();
 }
+// Is this email's job already in My applications? Same link, same job number, or same company with mostly the same title.
+function alreadyTracked(p){
+  const url=p.job?p.job.url:p.mail;
+  if(APPS[appKey(url)]||APPS[appKey(p.mail)])return true;
+  const ids=new Set(((p.job?p.job.url:'')+' '+(p.subject||'')).match(/\d{5,}/g)||[]);
+  const words=t=>new Set((t||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!/^(intern|interns|internship|summer|fall|spring|winter|20\d\d|the|and|for|with|program|undergraduate|graduate|student)$/.test(w)));
+  const pw=words(p.title),ck=coKey(p.co||'');
+  for(const a of Object.values(APPS)){
+    if(a.url===url||a.url===p.mail)return true;
+    for(const id of ids)if((a.url||'').includes(id))return true;
+    if(ck&&coKey(a.co||'')===ck){
+      const aw=words(a.title);if(!pw.size||!aw.size)continue;
+      let n=0;for(const w of pw)if(aw.has(w))n++;
+      if(n/Math.min(pw.size,aw.size)>=0.6)return true;
+    }
+  }
+  return false;
+}
 function pastBlock(){
   if(!gmail)return '';
   if(typeof inboxGate==='function'&&inboxGate())return `<div class="past-bar"><span><b>Applied to places before you found Intern Finder?</b> Sign in and connect Gmail, and we'll find those applications in your email.</span><button type="button" class="copy" id="inboxSignIn">Sign in</button></div>`;
   if(pastState==='loading')return '<div class="past-bar"><span>Looking through your email for applications you already sent…</span></div>';
   if(pastState==='error')return `<div class="past-bar"><span>${esc(pastErr)}</span><button type="button" class="copy" id="pastScan">Try again</button></div>`;
   if(!PAST)return `<div class="past-bar"><span><b>Applied to places before you found Intern Finder?</b> We can read your "thanks for applying" emails (read-only, it stays in your browser) and match them to listings here.</span><button type="button" class="copy" id="pastScan">Find them in my email</button></div>`;
-  const left=PAST.filter(p=>!APPS[appKey(p.job?p.job.url:p.mail)]);
+  const left=PAST.filter(p=>!alreadyTracked(p));
   if(!left.length)return `<div class="past-bar"><span>${PAST.length?'Everything we found in your email is in your list.':'No past applications found in your email.'}</span><button type="button" class="copy" id="pastScan">Check again</button></div>`;
   const row=p=>{const i=PAST.indexOf(p);
     const when=p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
@@ -980,7 +997,7 @@ $('list').addEventListener('click',async e=>{
   const one=e.target.closest('.past-add'),all=e.target.closest('#pastAll');if(!(one||all)||!tdb||!PAST)return;
   const btn=one||all;btn.disabled=true;btn.textContent='Adding…';
   try{
-    const list=one?[PAST[+one.dataset.i]]:PAST.filter(p=>!APPS[appKey(p.job?p.job.url:p.mail)]);
+    const list=one?[PAST[+one.dataset.i]]:PAST.filter(p=>!alreadyTracked(p));
     for(const p of list)await addPast(p);
   }catch(err){btn.disabled=false;btn.textContent='Could not add. Try again';return}
   if(view==='apps')setTimeout(renderApps,300);
