@@ -885,18 +885,114 @@ function refreshTracked(){
   document.querySelectorAll('[data-track]').forEach(el=>{if(!el.contains(document.activeElement)||el.dataset.busy)el.innerHTML=trackCtl(el.dataset.url)});
   if(view==='apps')renderApps();
 }
+/* ---------- Past applications: read "thanks for applying" emails and match them to Intern Finder listings ---------- */
+let PAST=null,pastState='idle',pastErr='';
+const PAST_Q=['newer_than:300d -category:promotions -category:social ("thank you for applying" OR "thanks for applying" OR "application received" OR "received your application" OR "your application to" OR "your application for" OR "application submitted" OR "thank you for your application")',
+  `newer_than:300d -category:promotions -category:social from:${ATS}`];
+const SENDER_JUNK=/\b(careers?|jobs?|recruit(ing|ment|er|ers)?|talent( acquisition)?|team|hiring|hr|people|university|campus|early careers?|notifications?|no-?reply|do-?not-?reply|via|workday|greenhouse|lever|ashby|icims|smartrecruiters|successfactors|taleo|jobvite|workable|the|at|@)\b/gi;
+let _coIdx=null;
+const MAILWORDS=new Set(['noreply','reply','jobs','job','careers','career','talent','recruiting','recruitment','recruiter','mail','email','notifications','notification','team','apply','hire','hiring','workday','myworkday','myworkdayjobs','greenhouse','lever','ashbyhq','icims','smartrecruiters','successfactors','taleo','jobvite','workablemail','gmail','outlook','info','support','people','university','campus','your','our','this','thank','thanks','application','applications','candidate','candidates','interview','position','role','next','steps','update','summer','fall','spring','internship','intern','mail01','email01','us','hr','greenhouse-mail','eightfold','phenom','avature','oraclecloud','dayforce','paradox','hirevue','codesignal','hackerrank']);
+function coIndex(){
+  if(_coIdx)return _coIdx;
+  const byKey=new Map(),byDom=new Map();
+  for(const x of L){const k=coKey(x.co);if(k&&k.length>=3){if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(x)}}
+  for(const [co,dom] of Object.entries(window.DOMAINS||{}))byDom.set(dom.split('.')[0].toLowerCase(),coKey(co));
+  return _coIdx={byKey,byDom};
+}
+function companyOf(from,text){
+  const {byKey,byDom}=coIndex();const tries=[];
+  const name=(from.match(/^\s*"?([^"<]+?)"?\s*</)||[])[1]||'';
+  const addr=((from.match(/<([^>]+)>/)||[])[1]||from).toLowerCase();
+  const [local,host]=addr.split('@');
+  tries.push(coKey(name.replace(SENDER_JUNK,' ').replace(/\s+/g,' ').trim()||'-'));
+  if(host){const parts=host.split('.');for(const p of parts)tries.push(byDom.get(p)||p)}
+  if(local)tries.push(...local.split(/[^a-z0-9]+/));
+  for(const m of text.matchAll(/\b(?:at|to|with|join(?:ing)?|from)\s+(?:the\s+)?([A-Z][A-Za-z0-9&.'-]+(?:\s+[A-Z][A-Za-z0-9&.'-]+){0,3})/g))tries.push(coKey(m[1]));
+  for(const t of tries){if(t&&t.length>=3&&!MAILWORDS.has(t)&&byKey.has(t))return t}
+  return '';
+}
+async function scanPast(){
+  if(!gmail)return;
+  pastState='loading';pastErr='';if(view==='apps')renderApps();
+  try{
+    const seen=new Map();
+    for(const q of PAST_Q){const p=await gCall('search_threads',{query:q,pageSize:50});for(const t of (p.threads||[]))if(!seen.has(t.id))seen.set(t.id,t)}
+    const TSTOP=new Set(['intern','interns','internship','summer','fall','spring','winter','2025','2026','2027','2028','the','and','for','with','usa','program','co-op','coop','undergraduate','graduate','student','team']);
+    const toks=t=>new Set((t||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!TSTOP.has(w)));
+    const titleIn=t=>{const re=/(?:application|applying|interest|applied)\s+(?:to|for|in)\s+(?:the\s+)?(?:position of\s+)?(.{6,140}?)(?:\s*\(ID:?\s*\d+\))?\s*(?:position|role|job|opening|at\s+[A-Z]|[.!,]|$)/gi;
+      for(const m of (t||'').matchAll(re)){const ti=m[1].trim();if(ti.length>=8&&/[a-z]{3,}\s+[a-z]{3,}/i.test(ti)&&!/^(us|our|this|your)\b/i.test(ti))return ti}return ''};
+    const out=new Map();const rank=x=>x?ORDER[x]+1:0;
+    for(const th of seen.values())for(const m of (th.messages||[])){
+      const text=decode((m.subject||'')+' '+(m.snippet||''));const from=m.sender||'';
+      const sig=signalOf(text);
+      if(!sig&&!HIREWORDS.test(text))continue;
+      if((JUNK.test(text)||ALERTFROM.test(from.toLowerCase()))&&!sig)continue;
+      const ck=companyOf(from,text);if(!ck)continue;
+      const et=titleIn(m.snippet)||titleIn(m.subject)||'';const ids=new Set(text.match(/\b\d{6,}\b/g)||[]);
+      // best listing at that company: same job number, else most of the title words in common
+      let best=null,bs=0;
+      for(const x of coIndex().byKey.get(ck)){let sc=0;for(const id of ids)if(x.url.includes(id))sc=100;
+        if(!sc&&et){const a=toks(x.title),e=toks(et);let n=0;for(const w of a)if(e.has(w))n++;sc=a.size&&e.size?n/Math.max(a.size,e.size):0}
+        if(sc>bs){bs=sc;best=x}}
+      const job=bs>=0.6?best:null;
+      const co=job?job.co:coIndex().byKey.get(ck)[0].co;
+      const key=job?job.url:co.toLowerCase()+'|'+(et||m.subject||'').toLowerCase();
+      if(APPS[appKey(job?job.url:th.viewUrl)])continue;                 // already tracked
+      const status=sig&&sig!=='Received'?sig:'Applied';
+      const it={key,job,co,title:job?job.title:(et||decode(m.subject||'')),status,date:m.date||'',mail:th.viewUrl,subject:decode(m.subject||'')};
+      const g=out.get(key);
+      if(!g||rank(status)>rank(g.status))out.set(key,{...it,date:g&&g.date>it.date?g.date:it.date});
+    }
+    PAST=[...out.values()].sort((a,b)=>(!!b.job-!!a.job)||(b.date||'').localeCompare(a.date||''));pastState='ok';
+  }catch(e){pastState='error';pastErr=e&&e.code==='needs_reauth'?'Google sign-in was closed or expired. Try again and allow read-only access.':'Could not check your email. Try again.'}
+  if(view==='apps')renderApps();
+}
+function pastBlock(){
+  if(!gmail)return '';
+  if(typeof inboxGate==='function'&&inboxGate())return `<div class="past-bar"><span><b>Applied to places before you found Intern Finder?</b> Sign in and connect Gmail, and we'll find those applications in your email.</span><button type="button" class="copy" id="inboxSignIn">Sign in</button></div>`;
+  if(pastState==='loading')return '<div class="past-bar"><span>Looking through your email for applications you already sent…</span></div>';
+  if(pastState==='error')return `<div class="past-bar"><span>${esc(pastErr)}</span><button type="button" class="copy" id="pastScan">Try again</button></div>`;
+  if(!PAST)return `<div class="past-bar"><span><b>Applied to places before you found Intern Finder?</b> We can read your "thanks for applying" emails (read-only, it stays in your browser) and match them to listings here.</span><button type="button" class="copy" id="pastScan">Find them in my email</button></div>`;
+  const left=PAST.filter(p=>!APPS[appKey(p.job?p.job.url:p.mail)]);
+  if(!left.length)return `<div class="past-bar"><span>${PAST.length?'Everything we found in your email is in your list.':'No past applications found in your email.'}</span><button type="button" class="copy" id="pastScan">Check again</button></div>`;
+  const row=p=>{const i=PAST.indexOf(p);
+    return `<div class="past-row"><div class="past-main"><b>${esc(p.co)}</b> <span>${esc(p.title)}</span>
+      <small>${p.job?'Matched to a listing on Intern Finder':'Exact posting not on Intern Finder'} · ${esc(p.status==='Applied'?'Application received':p.status)}${p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''} · <a href="${esc(p.mail)}" target="_blank" rel="noopener">email ↗</a></small></div>
+      <button type="button" class="copy past-add" data-i="${i}">Add</button></div>`};
+  const m=left.filter(p=>p.job),o=left.filter(p=>!p.job);
+  return `<div class="past"><div class="past-head"><b>Found in your email (${left.length})</b><span>Applications you sent before using Intern Finder. Add the ones that are right.</span>
+      <button type="button" class="copy" id="pastAll">Add all ${left.length}</button></div>
+    ${m.map(row).join('')}${o.length?`<div class="past-sub">Not on Intern Finder (added with a link to the email)</div>${o.map(row).join('')}`:''}</div>`;
+}
+function addPast(p){
+  const url=p.job?p.job.url:p.mail,x=p.job||{};
+  const ts=p.date?Date.parse(p.date)||Date.now():Date.now();
+  return tdb.collection('data/users/'+tuid).doc(appKey(url)).set({kind:'app',url,co:p.co,title:p.title,loc:(x.locs||[])[0]||'',status:p.status,
+    appliedAt:ts,updatedAt:Date.now(),...(p.job?{}:{source:'email'})});
+}
+$('list').addEventListener('click',async e=>{
+  if(e.target.closest('#pastScan')){scanPast();return}
+  const one=e.target.closest('.past-add'),all=e.target.closest('#pastAll');if(!(one||all)||!tdb||!PAST)return;
+  const btn=one||all;btn.disabled=true;btn.textContent='Adding…';
+  try{
+    const list=one?[PAST[+one.dataset.i]]:PAST.filter(p=>!APPS[appKey(p.job?p.job.url:p.mail)]);
+    for(const p of list)await addPast(p);
+  }catch(err){btn.disabled=false;btn.textContent='Could not add. Try again';return}
+  if(view==='apps')setTimeout(renderApps,300);
+});
 function renderApps(){
   const apps=Object.entries(APPS).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0));
   const counts={};apps.forEach(([k,a])=>counts[a.status]=(counts[a.status]||0)+1);
   $('count').innerHTML=`<b>${apps.length}</b> application${apps.length===1?'':'s'}`+(apps.length?' · '+STATUSES.filter(s=>counts[s]).map(s=>`${counts[s]} ${esc(s.toLowerCase())}`).join(' · '):'');
   $('more').hidden=true;
-  if(!apps.length){$('list').innerHTML='<div class="empty">No applications tracked yet. Open any listing and press <b>Mark as applied</b> after you apply.</div>';return}
-  $('list').innerHTML=apps.map(([k,a])=>{
+  const found=pastBlock();
+  if(!apps.length){$('list').innerHTML=found+'<div class="empty">No applications tracked yet. Open any listing and press <b>Mark as applied</b> after you apply.</div>';return}
+  $('list').innerHTML=found+apps.map(([k,a])=>{
     const x=BYURL[a.url];
     if(x)return card(x);
     return `<div class="item gone"><div class="ticket" style="border:0">
-      <div class="gone"><div class="title">${esc(a.title||'Internship')}</div><div class="co">${esc(a.co||'')} · this posting is no longer in the list (it may have closed)</div></div>
-      <div class="cta"><a class="apply" href="${esc(a.url)}" target="_blank" rel="noopener">Open posting ↗</a>
+      <div class="gone"><div class="title">${esc(a.title||'Internship')}</div><div class="co">${esc(a.co||'')} · ${a.source==='email'?'added from your email (this exact posting isn\'t on Intern Finder)':'this posting is no longer in the list (it may have closed)'}</div></div>
+      <div class="cta"><a class="apply" href="${esc(a.url)}" target="_blank" rel="noopener">${a.source==='email'?'Open email ↗':'Open posting ↗'}</a>
       <div class="track" data-track="${k}" data-url="${esc(a.url)}">${trackCtl(a.url)}</div></div></div></div>`;
   }).join('');
 }
