@@ -195,6 +195,18 @@ def eightfold(spec, co):
 def phenom(host, co):
     # Phenom People career sites (many large companies): the page's own search widget
     seen = set()
+    # job pages live under a locale path such as /us/en/job/<id>; read it off the home page
+    prefix = '/us/en'
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f'https://{host}/', headers={'User-Agent': 'Mozilla/5.0'}), timeout=15) as r:
+            home = r.read(400000).decode('utf-8', 'replace')
+        m = re.search(r'"(?:https://[^"/]+)?(/[a-z]{2,8}/[a-z]{2}(?:[-_][a-z]{2})?)/(?:job|search-results|jobs)\b', home, re.I)
+        if m: prefix = m.group(1)
+        else:
+            m = re.search(r'"locale"\s*:\s*"([a-z]{2})_([a-z]{2})"', home, re.I)
+            if m: prefix = f'/{m.group(2).lower()}/{m.group(1).lower()}'
+    except Exception:
+        pass
     for q in ('intern', 'co-op'):
         for frm in range(0, 500, 50):
             body = {'lang': 'en_us', 'deviceType': 'desktop', 'country': 'us', 'pageName': 'search-results', 'ddoKey': 'refineSearch',
@@ -208,7 +220,7 @@ def phenom(host, co):
                 if not jid or jid in seen: continue
                 seen.add(jid)
                 loc = x.get('location') or ', '.join(v for v in (x.get('city'), x.get('state'), x.get('country')) if v)
-                url = x.get('applyUrl') if False else f"https://{host}/job/{jid}"
+                url = f"https://{host}{prefix}/job/{jid}"
                 yield co, x.get('title', ''), loc, url, ts(x.get('postedDate') or x.get('dateCreated'))
             if len(rows) < 50: break
 
