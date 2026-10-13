@@ -258,7 +258,8 @@ def icims(host, co):
             if jid in seen: continue
             seen.add(jid); new += 1
             blk = page[page.find(url):page.find(url) + 3000]
-            m = re.search(r'(?:Location|header left)[^>]*>\s*(?:<[^>]+>\s*)*([A-Z][^<]{2,80})<', blk)
+            m = re.search(r'Job Locations?\s*</[^>]+>\s*(?:<[^>]+>\s*)*([^<]{2,120}?)\s*<', blk) or \
+                re.search(r'(?:Location|header left)[^>]*>\s*(?:<[^>]+>\s*)*((?!Job Locations?)[A-Z][^<]{2,80})<', blk)
             yield co, _h.unescape(title), _h.unescape(m.group(1).strip()) if m else '', url.split('?')[0], NOW - 3 * 86400
         if not new: break
 
