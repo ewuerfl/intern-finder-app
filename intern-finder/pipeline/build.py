@@ -8,9 +8,9 @@ RULES=[
  ('Education',r'\bteach|tutor|\beducation|curriculum|instructional design|classroom'),
  ('Quant',r'\bquant|trading|trader|market mak'),
  ('AI/ML/Data',r'machine learning|\bml\b|\bai\b|artificial intelligence|data scien|decision scien|data analy|data engineer|analytics|deep learning|computer vision|\bnlp\b|\bllm|research scientist|applied scientist|business intelligence|\bdata\b|perception'),
- ('Hardware',r'hardware|electrical|asic|fpga|rtl|vlsi|silicon|semiconductor|\bchip|gpu|cpu|verification|firmware|embedded|circuit|analog|digital design|pcb|signal integrity|power electronics|\brf\b|photonic|\bdft\b|physical design|validation engineer|electronics'),
+ ('Hardware',r'hardware|electrical|validation|asic|fpga|rtl|vlsi|silicon|semiconductor|\bchip|gpu|cpu|verification|firmware|embedded|circuit|analog|digital design|pcb|signal integrity|power electronics|\brf\b|photonic|\bdft\b|physical design|validation engineer|electronics'),
  ('Software',r'software|developer|\bswe\b|full[- ]?stack|front[- ]?end|back[- ]?end|\bweb\b|mobile|\bios\b|android|programm|platform engineer|site reliability|\bsre\b|compiler|algorithm|c\+\+|python|java\b'),
- ('IT',r'cyber|security|\bit\b|information technology|help desk|network|systems admin|devops|cloud|tech support|technical support'),
+ ('IT',r'cyber|security|\bit\b|information technology|\btechnology (intern|internship|analyst|program|co-?op|associate|summer)|technology solutions|business systems|systems analyst|technical (intern|internship|services)|digital services|help desk|network|systems admin|devops|cloud|tech support|technical support'),
  ('Mechanical',r'mechanical|aerospace|aeronaut|propulsion|thermal|robotics|mechatronic|avionics|spacecraft|satellite|automotive'),
  ('Hospitality',r'hospitality|hotel|resort|guest|restaurant|culinary|food (&|and) beverage|tourism|cruise|airline|catering|front desk|banquet|events?\b'),
  ('Healthcare',r'hospital|clinical|health|patient|nurs|medical|pharmacy|public health|care coordinat'),
@@ -28,7 +28,7 @@ RULES=[
  ('Retail',r'retail|merchandis|\bbuyer|buying|fashion|apparel|store|e-?commerce|consumer goods'),
  ('RealEstate',r'real estate|construction|property|leasing|architect|development associate|land'),
  ('Product',r'product manag|product owner|product design|\bproduct\b|\bux\b|\bui\b|user experience|designer|design intern|graphic|visual design|industrial design|program manag'),
- ('Engineering',r'civil|industrial|manufactur|process engineer|quality|structural|reliability|production|facilities|nuclear|mining|petroleum|systems engineer|field engineer|test engineer|structures|engineer'),
+ ('Engineering',r'systems integration|technical operations|automation|measurement systems|civil|industrial|manufactur|process engineer|quality|structural|reliability|production|facilities|nuclear|mining|petroleum|systems engineer|field engineer|test engineer|structures|engineer'),
  ('Business',r'business|operations|strategy|supply chain|logistic|procurement|sourcing|project manag|management|analyst|planning|administrat|executive|office|corporate|purchasing|commercial|leadership|coo\b'),
 ]
 FB={'Software':'Software','AI/ML/Data':'AI/ML/Data','Hardware':'Hardware','Product':'Product','Quant':'Quant'}
@@ -184,7 +184,9 @@ if os.path.exists('ats.json'):
     key=(co.lower(),ti.lower()+'|'+loc.lower()); u0=url.split('?')[0].rstrip('/')
     if key in seen or u0 in urls: continue
     seen.add(key); urls.add(u0)
-    c=classify(re.sub(r'^[A-Z][A-Za-z .]+ - ','',ti),'Business')   # drop a leading 'City - ' so place names don't decide the field
+    m=re.match(r'^([A-Z][A-Za-z .]+) - ',ti)
+    # drop a leading 'City - ' so place names don't decide the field, but keep it when it's the job itself ("AI Solution Architect - Undergraduate Intern")
+    c=(m and classify(ti[m.end():],'')) or classify(ti,'Business')
     if re.search(r'\b(tax|audit|assurance|accounting|cpa|actuarial)\b',ti,re.I): c='Finance'
     out.append([co,ti,[c],terms,[loc],[],'',int(posted),url,'','','']); na+=1
 print('job-board postings added',na)
