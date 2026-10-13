@@ -166,7 +166,7 @@ def jibe(host, co):
                 rid = str(x.get('req_id') or x.get('slug') or '')
                 if not rid or rid in seen: continue
                 seen.add(rid)
-                loc = x.get('full_location') or x.get('location_name') or ', '.join(v for v in (x.get('city'), x.get('state'), x.get('country')) if v)
+                loc = (x.get('full_location') or x.get('location_name') or ', '.join(v for v in (x.get('city'), x.get('state'), x.get('country')) if v)).split(';')[0].strip()
                 yield co, x.get('title', ''), loc, f"https://{host}/careers-home/jobs/{x.get('slug') or rid}?lang=en-us", ts(x.get('posted_date') or x.get('create_date'))
             if len(rows) < 100: break
 
@@ -176,8 +176,15 @@ def eightfold(spec, co):
     seen = set()
     for q in ('intern', 'co-op'):
         for start in range(0, 500, 10):
-            j = get(f'https://{host}/api/apply/v2/jobs?domain={dom}&query={q}&start={start}&num=10&sort_by=relevance')
-            rows = j.get('positions') or []
+            try:
+                j = get(f'https://{host}/api/apply/v2/jobs?domain={dom}&query={q}&start={start}&num=10&sort_by=relevance')
+                rows = j.get('positions') or []
+            except urllib.error.HTTPError:
+                # newer Eightfold sites ("PCSX")
+                j = get(f'https://{host}/api/pcsx/search?domain={dom}&query={q}&location=&start={start}&sort_by=relevance')
+                rows = [{'id': x.get('id'), 'name': x.get('name'), 'locations': x.get('locations') or [x.get('location') or ''],
+                         'canonicalPositionUrl': ('https://' + host + x['positionUrl']) if str(x.get('positionUrl', '')).startswith('/') else x.get('positionUrl'),
+                         't_create': x.get('postedTs') or x.get('creationTs')} for x in ((j.get('data') or {}).get('positions') or [])]
             for x in rows:
                 if x.get('id') in seen: continue
                 seen.add(x.get('id'))
@@ -248,7 +255,7 @@ KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo':
          'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims}
 
 import threading
-WD_SLOTS = threading.Semaphore(10)   # Workday rate-limits hard; read at most 6 Workday boards at a time
+WD_SLOTS = threading.Semaphore(16)   # Workday rate-limits hard; read at most 6 Workday boards at a time
 
 def _transient(e):
     # Worth retrying / keeping last results: timeouts, rate limits, server errors, dropped connections.
@@ -309,12 +316,13 @@ def main():
     stats = collections.defaultdict(lambda: [0, 0, 0])      # kind -> boards, internships, failures
     late = 0
     def run(b):
-        if time.time() - t0 > 780: return [], 'late', True   # out of time: keep this board's jobs from last run
+        if time.time() - t0 > 820: return [], 'late', True   # out of time: keep this board's jobs from last run
         return sweep(b)
     # slow, many-page boards first so they don't run into the time limit
-    order = {'amazon': 0, 'jibe': 1, 'phenom': 1, 'eightfold': 1, 'wd': 2, 'oracle': 2, 'icims': 3}
-    boards.sort(key=lambda b: order.get(b[0], 5))
-    with ThreadPoolExecutor(max_workers=32) as ex:
+    # quick one-request boards first, then the slow many-page career sites
+    order = {'wd': 5, 'amazon': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
+    boards.sort(key=lambda b: order.get(b[0], 0))
+    with ThreadPoolExecutor(max_workers=48) as ex:
         for board, (rows, err, transient) in zip(boards, ex.map(run, boards)):
             st = stats[board[0]]; st[0] += 1; st[1] += len(rows)
             if err == 'late': late += 1
