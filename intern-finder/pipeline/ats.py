@@ -263,9 +263,29 @@ def icims(host, co):
             yield co, _h.unescape(title), _h.unescape(m.group(1).strip()) if m else '', url.split('?')[0], NOW - 3 * 86400
         if not new: break
 
+def rmk(host, co):
+    # SAP SuccessFactors career sites ("jobs.<company>.com/search/?q=intern")
+    import html as _h
+    seen = set()
+    for q in ('intern', 'co-op'):
+        for start in range(0, 500, 25):
+            req = urllib.request.Request(f'https://{host}/search/?q={q}&startrow={start}', headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                page = r.read().decode('utf-8', 'replace')
+            rows = re.findall(r'<a[^>]+class="jobTitle-link"[^>]+href="([^"]+)"[^>]*>([^<]+)</a>', page)
+            new = 0
+            for href, title in rows:
+                if href in seen: continue
+                seen.add(href); new += 1
+                blk = page[page.find(href):page.find(href) + 2500]
+                m = re.search(r'class="jobLocation"[^>]*>\s*(?:<[^>]+>\s*)*([^<]{2,100}?)\s*<', blk)
+                url = href if href.startswith('http') else f'https://{host}{href}'
+                yield co, _h.unescape(title.strip()), _h.unescape(m.group(1).strip()) if m else '', url, NOW - 3 * 86400
+            if not new or len(rows) < 25: break
+
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk}
 
 import threading
 WD_SLOTS = threading.Semaphore(16)   # Workday rate-limits hard; read at most 6 Workday boards at a time
@@ -333,7 +353,7 @@ def main():
         return sweep(b)
     # slow, many-page boards first so they don't run into the time limit
     # quick one-request boards first, then the slow many-page career sites
-    order = {'wd': 5, 'amazon': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
+    order = {'wd': 5, 'rmk': 4, 'amazon': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
     boards.sort(key=lambda b: order.get(b[0], 0))
     with ThreadPoolExecutor(max_workers=48) as ex:
         for board, (rows, err, transient) in zip(boards, ex.map(run, boards)):

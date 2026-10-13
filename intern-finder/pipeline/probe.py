@@ -36,6 +36,14 @@ def try_phenom(host):
     except Exception:
         return False
 
+def try_rmk(host):
+    try:
+        req = urllib.request.Request(f'https://{host}/search/?q=intern', headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            return 'jobTitle-link' in r.read(300000).decode('utf-8', 'replace')
+    except Exception:
+        return False
+
 def try_eightfold(slug, dom):
     try:
         j = _get(f'https://{slug}.eightfold.ai/api/apply/v2/jobs?domain={dom}&query=intern&start=0&num=5')
@@ -64,7 +72,6 @@ def try_workday(stem):
                     return f'{host}|{stem}|{site}'
             except Exception:
                 pass
-        return None
     return None
 
 def main():
@@ -92,6 +99,19 @@ def main():
     for dom, co in dom2co.items():
         for pre in ('careers.', 'jobs.'):
             hosts.setdefault(pre + dom, co)
+    # every Fortune 500 company, even ones with no listings yet: guess its career-site hosts from its name
+    import f500 as F
+    for line in open('fortune500.txt', encoding='utf-8'):
+        if line.startswith('#') or not line.strip(): continue
+        names = [x.strip() for x in re.split(r'[=|]', line)]
+        disp = names[1] if len(names) > 1 else names[0]
+        for n in names[:2]:
+            stem = re.sub(r'[^a-z0-9]', '', F.norm(n).replace(' and ', ''))
+            if len(stem) < 2: continue
+            for h in (f'careers.{stem}.com', f'jobs.{stem}.com', f'{stem}.jobs', f'www.{stem}.jobs', f'careers.{stem}.jobs'):
+                hosts.setdefault(h, disp)
+            dom2co.setdefault(f'{stem}.com', disp)
+            f500.add(disp)
     print(f'probing {len(hosts)} career-site hosts, {len(dom2co)} company domains', flush=True)
 
     found = {}
@@ -99,6 +119,7 @@ def main():
         h, co = hc
         if try_jibe(h): return ('jibe', h, co)
         if try_phenom(h): return ('phenom', h, co)
+        if try_rmk(h): return ('rmk', h, co)
         return None
     with ThreadPoolExecutor(max_workers=48) as ex:
         for res in ex.map(site, hosts.items()):
