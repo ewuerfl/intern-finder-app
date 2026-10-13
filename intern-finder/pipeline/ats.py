@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 UA = {'User-Agent': 'Mozilla/5.0 (InternFinder; +https://intern-finder-xi.vercel.app)', 'Accept': 'application/json'}
 INTERN = re.compile(r'\b(intern|interns|internship|internships|co-?op|coop|summer analyst|summer associate|apprentice(ship)?|student (worker|assistant|trainee)|externship|fellowship program)\b', re.I)
-NOT_INTERN = re.compile(r'\b(internal|international|internist)\b(?!.*\bintern(ship)?\b)', re.I)
+NOT_INTERN = re.compile(r'\b(internal|international|internist)\b(?!.*\bintern(ship)?\b)|co-?op city', re.I)
 SENIOR = re.compile(r'\b(senior|sr\.|staff|principal|director|head of|vice president|vp)\b|\b(manager|coordinator|recruiter|specialist|lead|partner)\b.*\b(internship|intern|early careers?|campus|university) (program|recruit)|\b(internship|intern|campus|university|early careers?) (program|recruiting) (manager|coordinator|lead|specialist|partner)', re.I)
 NOW = time.time()
 YEAR = datetime.date.today().year
@@ -283,9 +283,52 @@ def rmk(host, co):
                 yield co, _h.unescape(title.strip()), _h.unescape(m.group(1).strip()) if m else '', url, NOW - 3 * 86400
             if not new or len(rows) < 25: break
 
+def apple(_, co):
+    # jobs.apple.com, Internships team: read the search pages (results are embedded in the page)
+    import html as _h
+    seen = set()
+    for page in range(1, 16):
+        req = urllib.request.Request(f'https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN&page={page}',
+                                     headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 'Accept': 'text/html'})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            pg = r.read().decode('utf-8', 'replace')
+        rows = []
+        # 1) data embedded for the page's own script
+        m = re.search(r'JSON\.parse\("((?:[^"\\]|\\.)*)"\)', pg)
+        blobs = []
+        if m:
+            try: blobs.append(json.loads(json.loads('"' + m.group(1) + '"')))
+            except Exception: pass
+        for m2 in re.finditer(r'<script[^>]*type="application/(?:json|ld\+json)"[^>]*>(.*?)</script>', pg, re.S):
+            try: blobs.append(json.loads(m2.group(1)))
+            except Exception: pass
+        def walk(o):
+            if isinstance(o, dict):
+                if 'postingTitle' in o and ('positionId' in o or 'id' in o): rows.append(o)
+                for v in o.values(): walk(v)
+            elif isinstance(o, list):
+                for v in o: walk(v)
+        for b in blobs: walk(b)
+        new = 0
+        for x in rows:
+            pid = str(x.get('positionId') or x.get('id'))
+            if pid in seen: continue
+            seen.add(pid); new += 1
+            locs = x.get('locations') or []
+            loc = ', '.join(l.get('name', '') for l in locs if isinstance(l, dict)) if isinstance(locs, list) else ''
+            slug = x.get('transformedPostingTitle') or re.sub(r'[^a-z0-9]+', '-', x.get('postingTitle', '').lower()).strip('-')
+            yield 'Apple', x.get('postingTitle', ''), loc, f'https://jobs.apple.com/en-us/details/{pid}/{slug}?team=STDNT', ts(x.get('postDateInGMT') or x.get('postingDate'))
+        # 2) plain links, if the page carries no data
+        if not rows:
+            for href, pid, title in re.findall(r'href="(/en-us/details/(\d+)/[^"]*)"[^>]*>(?:\s*<[^>]+>)*\s*([^<]{4,160}?)\s*<', pg):
+                if pid in seen: continue
+                seen.add(pid); new += 1
+                yield 'Apple', _h.unescape(title), '', 'https://jobs.apple.com' + href.split('?')[0], NOW - 3 * 86400
+        if not new: break
+
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time
@@ -302,7 +345,7 @@ def _sweep_once(board):
     for co_, title, loc, url, posted in KINDS[kind](ident, co):
         if not title or not url: continue
         terms = terms_of(title)
-        if keep(title, terms):
+        if keep(title, terms) or (kind == 'apple' and not SENIOR.search(title)):
             out.append([co_, title.strip(), (loc or '').strip() or 'See posting', terms, url, int(posted)])
     return out
 
@@ -353,7 +396,7 @@ def main():
         return sweep(b)
     # slow, many-page boards first so they don't run into the time limit
     # quick one-request boards first, then the slow many-page career sites
-    order = {'wd': 5, 'rmk': 4, 'amazon': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
+    order = {'wd': 5, 'rmk': 4, 'amazon': 3, 'apple': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
     boards.sort(key=lambda b: order.get(b[0], 0))
     with ThreadPoolExecutor(max_workers=48) as ex:
         for board, (rows, err, transient) in zip(boards, ex.map(run, boards)):
