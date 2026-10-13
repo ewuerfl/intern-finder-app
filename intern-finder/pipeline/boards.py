@@ -18,6 +18,10 @@ def board_of(url):
     if h.endswith('.breezy.hr'): return ('breezy', h.split('.')[0])
     if h.endswith('.bamboohr.com'): return ('bamboo', h.split('.')[0])
     if h == 'ats.rippling.com' and parts: return ('rippling', parts[0])
+    if h.endswith('eightfold.ai'): return ('eightfold', f"{h}|{h.split('.')[0]}.com")
+    if h in ('amazon.jobs', 'www.amazon.jobs'): return ('amazon', 'amazon')
+    if h.endswith('.icims.com') and not h.startswith('www.'): return ('icims', h)
+    if 'icims' in q or '/careers-home/jobs/' in p.path: return ('jibe', h)
     if h.endswith('oraclecloud.com') and 'sites' in parts:
         i = parts.index('sites')
         if i + 1 < len(parts): return ('oracle', f"{h}|{parts[i+1]}")
@@ -33,6 +37,10 @@ def main():
         if line.startswith('#') or not line.strip(): continue
         kind, ident, co = line.rstrip('\n').split('\t')
         names[(kind, ident)][co] += 1000   # curated name wins
+    # company career sites found by probe.py (Jibe, Phenom, Eightfold, Workday...)
+    if os.path.exists('probed.json'):
+        for kind, ident, co, seen in json.load(open('probed.json')):
+            names[(kind, ident)][co] += 500
     # companies found by the daily discovery sweep (discover.py)
     if os.path.exists('discovered.json'):
         for kind, ident, co, seen in json.load(open('discovered.json')):

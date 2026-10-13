@@ -13,7 +13,7 @@ mkdir -p app
 python3 extra.py
 python3 extra2.py
 python3 boards.py
-timeout 600 python3 ats.py || echo "WARN: job-board sweep failed; using last results"
+timeout 900 python3 ats.py || echo "WARN: job-board sweep failed; using last results"
 python3 build.py
 python3 make_data.py
 rm -rf s27dev mehek-builds_Summer2027-Internships r_* extra.json extra2.json
