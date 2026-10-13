@@ -287,8 +287,11 @@ def apple(_, co):
     # jobs.apple.com, Internships team: read the search pages (results are embedded in the page)
     import html as _h
     seen = set()
-    for page in range(1, 16):
-        req = urllib.request.Request(f'https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN&page={page}',
+    # the Internships team, plus keyword searches that catch the big U.S. "Undergrad ... Internships" pools
+    for base in ('team=internships-STDNT-INTRN', 'search=internship&location=united-states-USA', 'search=undergrad',
+                 'search=intern&location=united-states-USA', 'search=co-op'):
+      for page in range(1, 16):
+        req = urllib.request.Request(f'https://jobs.apple.com/en-us/search?{base}&page={page}',
                                      headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 'Accept': 'text/html'})
         with urllib.request.urlopen(req, timeout=25) as r:
             pg = r.read().decode('utf-8', 'replace')
