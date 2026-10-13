@@ -288,7 +288,7 @@ KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo':
          'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk}
 
 import threading
-WD_SLOTS = threading.Semaphore(16)   # Workday rate-limits hard; read at most 6 Workday boards at a time
+WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time
 
 def _transient(e):
     # Worth retrying / keeping last results: timeouts, rate limits, server errors, dropped connections.
