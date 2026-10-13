@@ -302,6 +302,15 @@ function locState(l){
 $('loc').innerHTML='<option value="">Anywhere</option><option value="REMOTE">Remote</option>'+Object.entries(STATES).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>`<option value="${c}">${n}</option>`).join('')+'<option value="X">Outside the U.S.</option>';
 const US={test:l=>{const c=locState(l);return !!c&&c!=='X'}};
 L.forEach(x=>{x.st=new Set(x.locs.map(locState).filter(Boolean))});
+/* Degree level from the job title: a title that says PhD / Master's / Graduate / Undergraduate wins over missing or loose source data */
+function titleDeg(t){
+  const o=[];
+  if(/\bph\.?\s?d\b|doctoral|doctorate|post-?doc/i.test(t))o.push('PhD');
+  if(/\bmasters?\b|master'?s|\bmba\b|\bm\.s\.(?!\w)|\bms\b(?!\s*(office|excel|word|teams))|(?<!under)(?<!new\s)(?<!recent\s)(?<!\w)grad(uate)?\b(?!\s*(program|programme|scheme|school|degree))/i.test(t)&&!/\bundergrad/i.test(t.replace(/undergrad(uate)?\s*(\/|or|&|and)\s*grad/ig,'')+'')||/(undergrad(uate)?\s*(\/|or|&|and)\s*grad)|(grad(uate)?\s*(\/|or|&|and)\s*undergrad)/i.test(t))o.push("Master's");
+  if(/undergrad|bachelor|\bb\.?s\.?\b(?!\w)|\bbs\/|sophomore|junior|freshman|rising senior/i.test(t))o.push("Bachelor's");
+  return o;
+}
+L.forEach(x=>{let t=titleDeg(x.title);if(!t.length&&!x.deg.length&&x.sum&&x.sum.l)t=titleDeg(x.sum.l);if(t.length)x.deg=t});
 let state={major:'',field:'',season:'',year:'',kw:'',sort:'rel',remote:false,usonly:false,nocit:false,deg:[],paidonly:true,known:false,f500:false,loc:''};
 try{const s=localStorage.getItem('if-sort');if(s)state.sort=s}catch(e){} // every visit starts with a clear search; only the sort order is remembered
 if(state.field&&!CAT[state.field])state.field='';if(state.major&&!MAJ[state.major])state.major='';
