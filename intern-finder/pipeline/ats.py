@@ -328,6 +328,26 @@ def apple(_, co):
                 seen.add(pid); new += 1
                 yield 'Apple', _h.unescape(title), '', 'https://jobs.apple.com' + href.split('?')[0], NOW - 3 * 86400
         if not new: break
+    # Apple's big U.S. undergrad/grad internship pools ("Hardware Technologies Undergrad Engineering Internships", ...):
+    # read each posting page listed in apple_pools.txt and keep it while it's still up
+    import os
+    if os.path.exists('apple_pools.txt'):
+        for line in open('apple_pools.txt'):
+            pid = line.split('#')[0].strip()
+            if not pid or pid in seen: continue
+            try:
+                req = urllib.request.Request(f'https://jobs.apple.com/en-us/details/{pid}', headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'})
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    pg = r.read().decode('utf-8', 'replace'); final = r.geturl()
+            except Exception:
+                continue
+            m = re.search(r'"postingTitle"\s*:\s*"([^"]+)"', pg.replace('\\"', '"')) or re.search(r'<h1[^>]*>([^<]+)</h1>', pg) or re.search(r'<title>([^<|]+)', pg)
+            if not m or '/details/' not in final: continue
+            title = m.group(1).replace(' - Jobs - Careers at Apple', '').strip()
+            if not INTERN.search(title): continue
+            seen.add(pid)
+            slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+            yield 'Apple', title, 'United States', f'https://jobs.apple.com/en-us/details/{pid}/{slug}', NOW - 7 * 86400
 
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
@@ -348,7 +368,7 @@ def _sweep_once(board):
     for co_, title, loc, url, posted in KINDS[kind](ident, co):
         if not title or not url: continue
         terms = terms_of(title)
-        if keep(title, terms) or (kind == 'apple' and not SENIOR.search(title)):
+        if keep(title, terms):
             out.append([co_, title.strip(), (loc or '').strip() or 'See posting', terms, url, int(posted)])
     return out
 

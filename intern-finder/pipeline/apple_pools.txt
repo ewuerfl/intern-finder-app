@@ -1,0 +1,4 @@
+# Apple U.S. internship pools (posting IDs on jobs.apple.com). Closed ones drop out automatically.
+200663968  # Hardware Technologies Undergrad Engineering Internships
+200664785  # Software Undergrad Engineering Internships
+200664780  # Machine Learning and Artificial Intelligence Undergrad Internships
