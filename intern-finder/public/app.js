@@ -73,6 +73,7 @@ const Store=(()=>{
     try{INBOX=null;inboxState='idle';if(view==='inbox')renderInbox()}catch(e){}
     document.getElementById('acctIn').hidden=!!u;document.getElementById('acctUser').hidden=!u;
     btn.textContent=u?(u.email||'Account'):'Sign in';
+    try{if(u&&window.IF_onAccountFilters)window.IF_onAccountFilters(u.user_metadata&&u.user_metadata.if_filters)}catch(e){}
     if(u){document.getElementById('acctWho').textContent=u.email||'';try{await Store.useAccount(u)}catch(e){show('Could not load your saved applications. Try again later.')}}
     else Store.useBrowser();
   }
@@ -646,7 +647,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paintTheme)
 let view='all',results=[],shown=0,matchList=null;const PAGE=40;
 function setView(v){
   view=v;$('tabAll').setAttribute('aria-pressed',v==='all');$('tabMatch').setAttribute('aria-pressed',v==='match');$('tabApps').setAttribute('aria-pressed',v==='apps');$('tabInbox').setAttribute('aria-pressed',v==='inbox');
-  $('sortWrap').hidden=v!=='all';$('elsewhere').hidden=v!=='all';render();
+  $('sortWrap').hidden=v!=='all';$('elsewhere').hidden=v!=='all';render();renderSaveBar();
 }
 function run(){read();setView('all')}
 /* No results: loosen the search one step at a time and show the first version that finds something */
@@ -694,7 +695,7 @@ function render(){
     if(sg){results=sg.list;$('list').innerHTML=`<div class="suggest"><b>No exact matches.</b> Suggested results ${esc(sg.why)}:</div>`}
     else $('list').innerHTML='<div class="empty">No open listings match. Try a different season or year, a broader field, or clear the keywords.</div>'}
   page();elsewhere();
-  syncFieldChips();syncStudy();renderQuick();renderNewPill();renderF500();
+  syncFieldChips();syncStudy();renderQuick();renderNewPill();renderF500();renderSaveBar();
 }
 const KW={Software:'software engineering',"AI/ML/Data":'data science machine learning',Hardware:'electrical computer engineering',Mechanical:'mechanical aerospace engineering',Engineering:'civil industrial engineering',IT:'IT cybersecurity',Product:'product design UX',
  Finance:'finance accounting',Quant:'quantitative trading',Consulting:'consulting',Business:'business operations supply chain',Marketing:'marketing',Sales:'sales',HR:'human resources',RealEstate:'real estate',Retail:'retail merchandising fashion',
@@ -1074,6 +1075,37 @@ $('quick').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)
 $('list').addEventListener('click',e=>{const b=e.target.closest('.copy');if(!b)return;
   const done=()=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy link',1500)};
   try{navigator.clipboard.writeText(b.dataset.url).then(done,()=>{b.textContent=b.dataset.url})}catch(err){b.textContent=b.dataset.url}});
+/* ---------- Saved filters: one tap to remember major/field, term, location, degree and sidebar choices ---------- */
+const SAVE_KEYS=['major','field','season','year','kw','sort','remote','usonly','nocit','deg','paidonly','known','f500','loc'];
+const pickF=o=>Object.fromEntries(SAVE_KEYS.map(k=>[k,o[k]]));
+let SAVED=null;
+try{SAVED=JSON.parse(localStorage.getItem('if-filters')||'null')}catch(e){}
+function useSaved(f){if(!f)return;for(const k of SAVE_KEYS)if(k in f)state[k]=Array.isArray(state[k])?[...(f[k]||[])]:f[k];
+  if(state.field&&!CAT[state.field])state.field='';if(state.major&&!MAJ[state.major])state.major=''}
+useSaved(SAVED);
+function sameF(a,b){return JSON.stringify(pickF(a))===JSON.stringify(pickF(b))}
+function filterSummary(f){
+  const parts=[f.field?CAT[f.field]:f.major,[f.season,f.year].filter(Boolean).join(' '),f.kw&&('“'+f.kw+'”'),f.loc?(f.loc==='REMOTE'?'Remote':f.loc==='X'?'Outside U.S.':STATES[f.loc]):'',f.usonly&&'U.S. only',f.remote&&'Remote',(f.deg||[]).join('/'),f.f500&&'Fortune 500',f.known&&'Well-known'].filter(Boolean);
+  return parts.join(' · ')||'no filters';
+}
+function renderSaveBar(){
+  const b=$('saveBar');if(!b)return;
+  if(view!=='all'){b.hidden=true;return}b.hidden=false;
+  if(SAVED&&sameF(SAVED,state))b.innerHTML=`<span class="sv-on">★ Saved search</span><span class="sv-sum">${esc(filterSummary(SAVED))}</span><button type="button" class="sv-btn" id="svClear">Forget</button>`;
+  else if(SAVED)b.innerHTML=`<button type="button" class="sv-btn sv-main" id="svSave">★ Update saved search</button><button type="button" class="sv-btn" id="svLoad">Back to saved: ${esc(filterSummary(SAVED))}</button>`;
+  else b.innerHTML=`<button type="button" class="sv-btn sv-main" id="svSave">☆ Save these filters</button><span class="sv-sum">Opens with them next time</span>`;
+}
+async function storeSaved(f){
+  SAVED=f;try{f?localStorage.setItem('if-filters',JSON.stringify(f)):localStorage.removeItem('if-filters')}catch(e){}
+  try{if(SB&&acctUser){const {data}=await SB.auth.updateUser({data:{if_filters:f}});if(data&&data.user)acctUser=data.user}}catch(e){}
+  renderSaveBar();
+}
+window.IF_onAccountFilters=f=>{if(f&&!sameF(f,SAVED||{})){SAVED=f;try{localStorage.setItem('if-filters',JSON.stringify(f))}catch(e){}useSaved(f);apply();run()}else renderSaveBar()};
+document.addEventListener('click',e=>{
+  if(e.target.closest('#svSave')){read();storeSaved(pickF(state))}
+  else if(e.target.closest('#svClear'))storeSaved(null);
+  else if(e.target.closest('#svLoad')){useSaved(SAVED);apply();run();showResults()}
+});
 apply();run();
 
 /* ---------- Resume matcher ---------- */

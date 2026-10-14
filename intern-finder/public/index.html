@@ -329,6 +329,10 @@ body{margin:0}
 .past-meta{display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:0 4px 6px}.past-meta .past-add{margin-left:auto}
 .sumlike{display:flex;gap:14px;align-items:flex-start;padding:16px 18px}.sumlike .body{display:grid;gap:4px;min-width:0}
 .past-head{margin:4px 0 10px}
+.savebar{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted)}
+.sv-btn{font:600 12.5px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.sv-btn.sv-main{background:var(--ink);color:var(--bg);border-color:transparent}
+.sv-on{font-weight:700;color:var(--ink)}.sv-sum{min-width:0;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -385,6 +389,7 @@ body{margin:0}
         <div class="go"><button class="btn" type="submit">Search</button></div>
       </div>
       <div class="quick" id="quick"><small>Try:</small></div>
+      <div class="savebar" id="saveBar" hidden></div>
     </form>
     <span class="hero-meta"><span class="asof" id="asof"></span>
     <button type="button" class="install" id="install" hidden>Install app</button><button type="button" class="newpill" id="newPill" hidden></button><button type="button" class="f5new" id="newF5" hidden></button><button type="button" class="f5pill" id="f500Pill" aria-pressed="false" hidden></button></span>
