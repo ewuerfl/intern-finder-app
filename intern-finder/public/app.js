@@ -879,10 +879,12 @@ const STCLS={Applied:'term',"Online assessment":'term',Interviewing:'good',Offer
 let tdb=null,tuid=null,APPS={},trackOK=false;
 const BYURL={};L.forEach(x=>{BYURL[x.url]=x});
 function appKey(url){let h=5381;for(const c of url)h=((h*33)^c.charCodeAt(0))>>>0;let h2=0;for(const c of url)h2=(h2*131+c.charCodeAt(0))>>>0;return 'app-'+h.toString(36)+h2.toString(36)}
-function trackTag(url){const a=APPS[appKey(url)];return a?`<span class="tag ${STCLS[a.status]||''} applied">✓ ${esc(a.status)}</span>`:''}
+function appKeyFor(url){const k0=appKey(url);if(APPS[k0])return k0;const k=jobId(url);if(k)for(const [kk,v] of Object.entries(APPS))if(v.url&&jobId(v.url)===k)return kk;return k0}
+function appFor(url){const a=APPS[appKey(url)];if(a)return a;const k=jobId(url);if(!k)return null;for(const v of Object.values(APPS))if(v.url&&jobId(v.url)===k)return v;return null}
+function trackTag(url){const a=appFor(url);return a?`<span class="tag ${STCLS[a.status]||''} applied">✓ ${esc(a.status)}</span>`:''}
 function trackCtl(url){
   if(!trackOK)return '';
-  const a=APPS[appKey(url)];
+  const a=appFor(url);
   if(!a)return '<button type="button" class="copy tk-add">Mark as applied</button>';
   return `<label class="tk-row">Status <select class="tk-status">${STATUSES.map(st=>`<option${st===a.status?' selected':''}>${esc(st)}</option>`).join('')}</select></label>
     <span class="tk-date">Applied ${new Date(a.appliedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>
@@ -1043,14 +1045,14 @@ async function tWrite(el,fn){
 }
 $('list').addEventListener('click',e=>{
   const el=e.target.closest('[data-track]');if(!el||!tdb)return;
-  const url=el.dataset.url,key=appKey(url),ref=tdb.collection('data/users/'+tuid).doc(key);
+  const url=el.dataset.url,key=appKeyFor(url),ref=tdb.collection('data/users/'+tuid).doc(key);
   if(e.target.closest('.tk-add')){const x=BYURL[url]||{};
     tWrite(el,()=>ref.set({kind:'app',url,co:x.co||'',title:x.title||'',loc:(x.locs||[])[0]||'',status:'Applied',appliedAt:Date.now(),updatedAt:Date.now()}));}
   else if(e.target.closest('.tk-rm'))tWrite(el,()=>ref.delete());
 });
 $('list').addEventListener('change',e=>{
   const sel=e.target.closest('.tk-status');if(!sel||!tdb)return;const el=sel.closest('[data-track]');
-  const ref=tdb.collection('data/users/'+tuid).doc(appKey(el.dataset.url));
+  const ref=tdb.collection('data/users/'+tuid).doc(appKeyFor(el.dataset.url));
   tWrite(el,()=>ref.update({status:sel.value,updatedAt:Date.now()}));
 });
 (async()=>{
