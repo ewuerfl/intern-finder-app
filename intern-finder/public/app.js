@@ -1011,6 +1011,13 @@ $('list').addEventListener('click',async e=>{
   }catch(err){btn.disabled=false;btn.textContent='Could not add. Try again';return}
   if(view==='apps')setTimeout(renderApps,300);
 });
+// Same posting under a slightly different link (other slug, extra ?team=, en-US vs not): match host + job number
+let _byId=null;
+function sameJob(url){
+  if(!_byId){_byId=new Map();for(const x of L){const k=jobId(x.url);if(k)_byId.set(k,x)}}
+  const k=jobId(url);return k?_byId.get(k):null;
+}
+function jobId(u){try{const p=new URL(u);const ids=(p.pathname+'?'+p.search).match(/\d{5,}/g);return ids?p.hostname.replace(/^www\./,'')+'#'+ids[ids.length-1]:''}catch(e){return ''}}
 function renderApps(){
   const apps=Object.entries(APPS).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0));
   const counts={};apps.forEach(([k,a])=>counts[a.status]=(counts[a.status]||0)+1);
@@ -1019,7 +1026,7 @@ function renderApps(){
   const found=pastBlock();
   if(!apps.length){$('list').innerHTML=found+'<div class="empty">No applications tracked yet. Open any listing and press <b>Mark as applied</b> after you apply.</div>';return}
   $('list').innerHTML=found+apps.map(([k,a])=>{
-    const x=BYURL[a.url];
+    const x=BYURL[a.url]||sameJob(a.url);
     if(x)return card(x);
     return `<div class="item gone"><div class="ticket" style="border:0">
       <div class="gone"><div class="title">${esc(a.title||'Internship')}</div><div class="co">${esc(a.co||'')} · ${a.source==='email'?'added from your email (this exact posting isn\'t on Intern Finder)':'this posting is no longer in the list (it may have closed)'}</div></div>
