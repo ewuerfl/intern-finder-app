@@ -374,6 +374,9 @@ def radancy(spec, co):
                     except Exception:
                         continue
             new = 0
+            _ids = re.findall(r'href="/job/[^"]+/\d+/(\d+)"', page)
+            if 'arm.com' in host:
+                print(f'::notice title=ARMDBG {q} p{pg}::len={len(page)} ids={len(_ids)} new={len([i for i in _ids if i not in seen])} has_austin={"100011168720" in page} total={(j.get("filters","")[:0] if False else "")}', flush=True)
             for m in re.finditer(r'<a[^>]+href="(/job/[^"]+/\d+/(\d+))"[^>]*>(.*?)</a>', page, re.S):
                 href, jid, inner = m.groups()
                 if jid in seen: continue
@@ -394,8 +397,13 @@ def radancy(spec, co):
 def page(url, co):
     # One posting page (e.g. a company's single pooled intern posting): read its schema.org JobPosting data
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36', 'Accept': 'text/html'})
-    with urllib.request.urlopen(req, timeout=25) as r:
-        pg = r.read().decode('utf-8', 'replace')
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            pg = r.read().decode('utf-8', 'replace')
+    except Exception as e:
+        print(f'::notice title=PAGEDBG::{url[:80]} {type(e).__name__} {getattr(e, "code", "")} {str(e)[:120]}', flush=True)
+        raise
+    print(f'::notice title=PAGEDBG::{url[:80]} ok len={len(pg)} ldjson={"ld+json" in pg} h1={bool(re.search("<h1", pg))}', flush=True)
     for blob in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', pg, re.S):
         try: j = json.loads(blob.strip())
         except Exception: continue
