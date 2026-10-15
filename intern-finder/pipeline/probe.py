@@ -44,6 +44,15 @@ def try_rmk(host):
     except Exception:
         return False
 
+def try_radancy(host):
+    try:
+        req = urllib.request.Request(f'https://{host}/search-jobs/intern', headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            pg = r.read(400000).decode('utf-8', 'replace')
+        return bool(re.search(r'href="/job/[^"]+/\d+/\d+"', pg)) or 'talentbrew' in pg.lower()
+    except Exception:
+        return False
+
 def try_eightfold(slug, dom):
     try:
         j = _get(f'https://{slug}.eightfold.ai/api/apply/v2/jobs?domain={dom}&query=intern&start=0&num=5')
@@ -120,6 +129,7 @@ def main():
         if try_jibe(h): return ('jibe', h, co)
         if try_phenom(h): return ('phenom', h, co)
         if try_rmk(h): return ('rmk', h, co)
+        if try_radancy(h): return ('radancy', h, co)
         return None
     with ThreadPoolExecutor(max_workers=48) as ex:
         for res in ex.map(site, hosts.items()):

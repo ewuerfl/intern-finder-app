@@ -21,6 +21,7 @@ def board_of(url):
     if h.endswith('eightfold.ai'): return ('eightfold', f"{h}|{h.split('.')[0]}.com")
     if h in ('amazon.jobs', 'www.amazon.jobs'): return ('amazon', 'amazon')
     if h == 'jobs.apple.com': return ('apple', 'apple')
+    if len(parts) >= 4 and parts[0] == 'job' and parts[-1].isdigit() and parts[-2].isdigit(): return ('radancy', h)
     if h.endswith('.icims.com') and not h.startswith('www.'): return ('icims', h)
     if 'icims' in q or '/careers-home/jobs/' in p.path: return ('jibe', h)
     if h.endswith('oraclecloud.com') and 'sites' in parts:

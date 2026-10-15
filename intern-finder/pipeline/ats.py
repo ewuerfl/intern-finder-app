@@ -349,9 +349,44 @@ def apple(_, co):
             slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
             yield 'Apple', title, 'United States', f'https://jobs.apple.com/en-us/details/{pid}/{slug}', NOW - 7 * 86400
 
+def radancy(host, co):
+    # Radancy / TalentBrew career sites, e.g. careers.arm.com ("/job/<city>/<slug>/<tenant>/<id>")
+    import html as _h
+    seen = set()
+    for q in ('intern', 'internship', 'co-op'):
+        for pg in range(1, 11):
+            url = (f'https://{host}/search-jobs/results?ActiveFacetID=0&CurrentPage={pg}&RecordsPerPage=100&Distance=50&RadiusUnitType=0'
+                   f'&Keywords={q}&Location=&ShowRadius=False&IsPagination=False&FacetFilters=&SearchResultsModuleName=Search+Results'
+                   f'&SearchFiltersModuleName=Search+Filters&SortCriteria=0&SortDirection=0&SearchType=5&ResultsType=0')
+            try:
+                j = get(url, extra={'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json, text/javascript, */*'})
+                page = j.get('results') or '' if isinstance(j, dict) else ''
+            except Exception:
+                if pg > 1: break
+                req = urllib.request.Request(f'https://{host}/search-jobs/{q}', headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=20) as r:
+                    page = r.read().decode('utf-8', 'replace')
+            new = 0
+            for m in re.finditer(r'<a[^>]+href="(/job/[^"]+/\d+/(\d+))"[^>]*>(.*?)</a>', page, re.S):
+                href, jid, inner = m.groups()
+                if jid in seen: continue
+                t = re.search(r'<h[23][^>]*>(.*?)</h[23]>', inner, re.S)
+                title = _h.unescape(re.sub(r'<[^>]+>', '', t.group(1) if t else inner)).strip()
+                if not title: continue
+                seen.add(jid); new += 1
+                l = re.search(r'class="[^"]*job-location[^"]*"[^>]*>(.*?)</', inner, re.S)
+                loc = _h.unescape(re.sub(r'<[^>]+>', '', l.group(1))).strip() if l else href.split('/')[2].replace('-', ' ').title()
+                d = re.search(r'class="[^"]*job-date-posted[^"]*"[^>]*>(.*?)</', inner, re.S)
+                posted = NOW - 3 * 86400
+                if d:
+                    try: posted = datetime.datetime.strptime(re.sub(r'<[^>]+>', '', d.group(1)).strip(), '%m/%d/%Y').timestamp()
+                    except Exception: pass
+                yield co, title, loc, f'https://{host}{href}', posted
+            if not new: break
+
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time
@@ -419,7 +454,7 @@ def main():
         return sweep(b)
     # slow, many-page boards first so they don't run into the time limit
     # quick one-request boards first, then the slow many-page career sites
-    order = {'wd': 5, 'rmk': 4, 'amazon': 3, 'apple': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
+    order = {'wd': 5, 'rmk': 4, 'radancy': 4, 'amazon': 3, 'apple': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
     boards.sort(key=lambda b: order.get(b[0], 0))
     with ThreadPoolExecutor(max_workers=48) as ex:
         for board, (rows, err, transient) in zip(boards, ex.map(run, boards)):
