@@ -349,9 +349,10 @@ def apple(_, co):
             slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
             yield 'Apple', title, 'United States', f'https://jobs.apple.com/en-us/details/{pid}/{slug}', NOW - 7 * 86400
 
-def radancy(host, co):
+def radancy(spec, co):
     # Radancy / TalentBrew career sites, e.g. careers.arm.com ("/job/<city>/<slug>/<tenant>/<id>")
     import html as _h
+    host, _, tenant = spec.partition('|')
     seen = set()
     for q in ('intern', 'internship', 'co-op'):
         for pg in range(1, 11):
@@ -363,9 +364,15 @@ def radancy(host, co):
                 page = j.get('results') or '' if isinstance(j, dict) else ''
             except Exception:
                 if pg > 1: break
-                req = urllib.request.Request(f'https://{host}/search-jobs/{q}', headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=20) as r:
-                    page = r.read().decode('utf-8', 'replace')
+                page = ''
+                for path in ([f'/search-jobs/{q}/{tenant}/1'] if tenant else []) + [f'/search-jobs/{q}', f'/search-jobs?k={q}']:
+                    try:
+                        req = urllib.request.Request(f'https://{host}{path}', headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36', 'Accept': 'text/html'})
+                        with urllib.request.urlopen(req, timeout=20) as r:
+                            page = r.read().decode('utf-8', 'replace')
+                        if '/job/' in page: break
+                    except Exception:
+                        continue
             new = 0
             for m in re.finditer(r'<a[^>]+href="(/job/[^"]+/\d+/(\d+))"[^>]*>(.*?)</a>', page, re.S):
                 href, jid, inner = m.groups()
@@ -384,9 +391,37 @@ def radancy(host, co):
                 yield co, title, loc, f'https://{host}{href}', posted
             if not new: break
 
+def page(url, co):
+    # One posting page (e.g. a company's single pooled intern posting): read its schema.org JobPosting data
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36', 'Accept': 'text/html'})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        pg = r.read().decode('utf-8', 'replace')
+    for blob in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', pg, re.S):
+        try: j = json.loads(blob.strip())
+        except Exception: continue
+        for x in (j if isinstance(j, list) else j.get('@graph', [j]) if isinstance(j, dict) else []):
+            if not isinstance(x, dict) or 'JobPosting' not in str(x.get('@type')): continue
+            vt = x.get('validThrough')
+            if vt and ts(vt) < NOW: return
+            locs = x.get('jobLocation') or []
+            locs = locs if isinstance(locs, list) else [locs]
+            names = []
+            for l in locs:
+                a = (l or {}).get('address') or {}
+                if isinstance(a, dict):
+                    n = ', '.join(v for v in (a.get('addressLocality'), a.get('addressRegion')) if v)
+                    if n: names.append(n)
+            import html as _h
+            yield co, _h.unescape(x.get('title', '')), '; '.join(names), url, ts(x.get('datePosted'))
+            return
+    t = re.search(r'<h1[^>]*>(.*?)</h1>', pg, re.S)
+    if t:
+        import html as _h
+        yield co, _h.unescape(re.sub(r'<[^>]+>', '', t.group(1))).strip(), '', url, NOW - 7 * 86400
+
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time
