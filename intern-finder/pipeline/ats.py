@@ -339,11 +339,9 @@ def apple(_, co):
                 req = urllib.request.Request(f'https://jobs.apple.com/en-us/details/{pid}', headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'})
                 with urllib.request.urlopen(req, timeout=25) as r:
                     pg = r.read().decode('utf-8', 'replace'); final = r.geturl()
-            except Exception as e:
-                print(f'::notice title=Apple pool {pid}::fetch failed {type(e).__name__} {getattr(e, "code", "")}', flush=True)
+            except Exception:
                 continue
             m = re.search(r'"postingTitle"\s*:\s*"([^"]+)"', pg.replace('\\"', '"')) or re.search(r'<h1[^>]*>([^<]+)</h1>', pg) or re.search(r'<title>([^<|]+)', pg)
-            print(f'::notice title=Apple pool {pid}::final={final} len={len(pg)} title={(m.group(1)[:90] if m else None)!r}', flush=True)
             if not m or '/details/' not in final: continue
             title = m.group(1).replace(' - Jobs - Careers at Apple', '').strip()
             if not INTERN.search(title): continue
