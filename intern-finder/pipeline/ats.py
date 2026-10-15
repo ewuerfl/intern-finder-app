@@ -357,7 +357,7 @@ def radancy(spec, co):
     for q in ('intern', 'internship', 'co-op'):
         for pg in range(1, 11):
             url = (f'https://{host}/search-jobs/results?ActiveFacetID=0&CurrentPage={pg}&RecordsPerPage=100&Distance=50&RadiusUnitType=0'
-                   f'&Keywords={q}&Location=&ShowRadius=False&IsPagination=False&FacetFilters=&SearchResultsModuleName=Search+Results'
+                   f'&Keywords={q}&Location=&ShowRadius=False&IsPagination={"True" if pg > 1 else "False"}&FacetFilters=&SearchResultsModuleName=Search+Results'
                    f'&SearchFiltersModuleName=Search+Filters&SortCriteria=0&SortDirection=0&SearchType=5&ResultsType=0')
             try:
                 j = get(url, extra={'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json, text/javascript, */*'})
