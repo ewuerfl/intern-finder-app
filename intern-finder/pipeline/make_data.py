@@ -120,7 +120,7 @@ import datetime, time as _time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 _now = _time.time()
 FEED = re.compile(r'greenhouse|lever\.co|ashbyhq|myworkdayjobs|smartrecruiters|workable|rippling|oraclecloud|recruitee|breezy|bamboohr')
-JUNK = re.compile(r'high school|commission[- ]only|brand ambassador|campus ambassador|independent contractor|\bmlm\b|door[- ]to[- ]door|unpaid volunteer', re.I)
+JUNK = re.compile(r'high school|commission[- ]only|brand ambassador|campus ambassador|independent contractor|\bmlm\b|door[- ]to[- ]door|unpaid volunteer|foreign pharmacy grad', re.I)
 UNPAID = re.compile(r'\bunpaid\b|\bvolunteer\b|for (academic )?credit( only)?\b|no (compensation|pay)\b|not paid', re.I)
 def _past(terms):
     end = {'Spring': 5, 'Summer': 8, 'Fall': 12, 'Winter': 2}; today = datetime.date.today()
@@ -233,8 +233,31 @@ for r in L:
 _hist = collections.Counter(int(r[12]) for r in L)
 print('rating spread:', ' '.join(f'{k}:{_hist[k]}' for k in sorted(_hist)))
 
+# Same job at many store/site locations (e.g. "Pharmacy Intern" at 300 CVS stores): show it once with its locations
+_grp = collections.OrderedDict()
+for r in L:
+    _grp.setdefault((_norm_co(r[0]), re.sub(r'[^a-z0-9]+', '', r[1].lower())), []).append(r)
+_m = []
+for rows in _grp.values():
+    if len(rows) < 4: _m.extend(rows); continue
+    rows.sort(key=lambda r: -(r[7] or 0))
+    best = rows[0]
+    locs = []
+    for r in rows:
+        for l in r[4]:
+            if l not in locs: locs.append(l)
+    best[4] = locs[:3] + ([f'{len(locs) - 3} more locations'] if len(locs) > 3 else [])
+    _m.append(best)
+print(f'collapsed {len(L) - len(_m)} same-title postings at other locations')
+L[:] = _m
+
+# "New since last update" = jobs that are really new, not jobs from a careers site we just started reading
+# or a job whose link changed: count it only if its company was already on the site and its job number is new.
 prev_urls = {r[8] for r in prev.get('listings', [])} if prev else set()
-added = [r[8] for r in L if prev_urls and r[8] not in prev_urls]
+prev_keys = {_job_key(r[8]) for r in prev.get('listings', [])} if prev else set()
+prev_hosts = {urllib.parse.urlparse(r[8]).hostname for r in prev.get('listings', [])} if prev else set()
+added = [r[8] for r in L if prev_urls and r[8] not in prev_urls and _job_key(r[8]) not in prev_keys
+         and urllib.parse.urlparse(r[8]).hostname in prev_hosts]
 used = {r[8] for r in L}
 summ = {u: v for u, v in S.items() if u in used}
 from f500 import which as _f500
