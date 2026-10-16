@@ -374,9 +374,6 @@ def radancy(spec, co):
                     except Exception:
                         continue
             new = 0
-            _ids = re.findall(r'href="/job/[^"]+/\d+/(\d+)"', page)
-            if 'arm.com' in host:
-                print(f'::notice title=ARMDBG {q} p{pg}::len={len(page)} ids={len(_ids)} new={len([i for i in _ids if i not in seen])} has_austin={"100011168720" in page} total={(j.get("filters","")[:0] if False else "")}', flush=True)
             for m in re.finditer(r'<a[^>]+href="(/job/[^"]+/\d+/(\d+))"[^>]*>(.*?)</a>', page, re.S):
                 href, jid, inner = m.groups()
                 if jid in seen: continue
