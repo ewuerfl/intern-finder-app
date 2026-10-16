@@ -397,13 +397,8 @@ def radancy(spec, co):
 def page(url, co):
     # One posting page (e.g. a company's single pooled intern posting): read its schema.org JobPosting data
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36', 'Accept': 'text/html'})
-    try:
-        with urllib.request.urlopen(req, timeout=25) as r:
-            pg = r.read().decode('utf-8', 'replace')
-    except Exception as e:
-        print(f'::notice title=PAGEDBG::{url[:80]} {type(e).__name__} {getattr(e, "code", "")} {str(e)[:120]}', flush=True)
-        raise
-    print(f'::notice title=PAGEDBG::{url[:80]} ok len={len(pg)} ldjson={"ld+json" in pg} h1={bool(re.search("<h1", pg))}', flush=True)
+    with urllib.request.urlopen(req, timeout=25) as r:
+        pg = r.read().decode('utf-8', 'replace')
     for blob in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', pg, re.S):
         try: j = json.loads(blob.strip())
         except Exception: continue

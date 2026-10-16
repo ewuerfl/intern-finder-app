@@ -191,7 +191,8 @@ WHY = {}
 if os.environ.get('GITHUB_ACTIONS'):
     slot = datetime.datetime.utcnow().hour // 3 % 8
     prev_urls0 = {r[8] for r in prev.get('listings', [])} if prev else set()
-    todo = [r[8] for r in L if r[10] != 'p' and r[8] not in dead and _job_key(r[8]) not in live
+    NOCHECK = re.compile(r'careers\.arm\.com')   # answers 404 to automated checks even for live postings
+    todo = [r[8] for r in L if r[10] != 'p' and not NOCHECK.search(r[8]) and r[8] not in dead and _job_key(r[8]) not in live
             and (r[8] not in prev_urls0 or os.environ.get('GITHUB_EVENT_NAME') != 'schedule'
                  or (FULL and int(hashlib.md5(r[8].encode()).hexdigest(), 16) % 8 == slot))]
     todo.sort(key=lambda u: 'myworkdayjobs' not in u)   # Workday first: its pages always load, so only this check catches removed jobs
