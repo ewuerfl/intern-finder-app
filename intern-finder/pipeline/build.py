@@ -8,7 +8,7 @@ RULES=[
  ('Education',r'\bteach|tutor|\beducation|curriculum|instructional design|classroom'),
  ('Quant',r'\bquant|trading|trader|market mak'),
  ('AI/ML/Data',r'machine learning|\bml\b|\bai\b|artificial intelligence|data scien|decision scien|data analy|data engineer|analytics|deep learning|computer vision|\bnlp\b|\bllm|research scientist|applied scientist|business intelligence|\bdata\b|perception'),
- ('Hardware',r'hardware|electrical|validation|asic|fpga|rtl|vlsi|silicon|semiconductor|\bchip|gpu|cpu|verification|firmware|embedded|circuit|analog|digital design|pcb|signal integrity|power electronics|\brf\b|photonic|\bdft\b|physical design|validation engineer|electronics'),
+ ('Hardware',r'\bhbm\b|\bdram\b|\bnand\b|\bsram\b|memory (design|architect|engineer|controller|system)|\bsoc\b|microarchitecture|computer architecture|cpu architect|gpu architect|silicon architect|hardware architect|chip architect|\bddr\b|\bpcie\b|\bcxl\b|\bphy\b|mixed[- ]signal|hardware|electrical|validation|asic|fpga|rtl|vlsi|silicon|semiconductor|\bchip|gpu|cpu|verification|firmware|embedded|circuit|analog|digital design|pcb|signal integrity|power electronics|\brf\b|photonic|\bdft\b|physical design|validation engineer|electronics'),
  ('Software',r'software|developer|\bswe\b|full[- ]?stack|front[- ]?end|back[- ]?end|\bweb\b|mobile|\bios\b|android|programm|platform engineer|site reliability|\bsre\b|compiler|algorithm|c\+\+|python|java\b'),
  ('IT',r'cyber|security|\bit\b|information technology|\btechnology (intern|internship|analyst|program|co-?op|associate|summer)|technology solutions|business systems|systems analyst|technical (intern|internship|services)|digital services|help desk|network|systems admin|devops|cloud|tech support|technical support'),
  ('Mechanical',r'mechanical|aerospace|aeronaut|propulsion|thermal|robotics|mechatronic|avionics|spacecraft|satellite|automotive'),
@@ -195,6 +195,14 @@ for r in out:
   if isinstance(r[2],str): r[2]=[r[2]]
 print('litos added',n,'total',len(out))
 print(collections.Counter(r[2][0] for r in out).most_common())
+# Chip companies: a vague title ("Intern - Next-Generation HBM Architecture", "Design Engineer Intern") is hardware work,
+# not real estate or business, unless the title clearly says finance/HR/marketing/etc.
+SEMI=re.compile(r'^(micron|amd|nvidia|intel|qualcomm|texas instruments|analog devices|marvell|broadcom|arm|nxp|onsemi|microchip|globalfoundries|samsung semiconductor|sk hynix|western digital|sandisk|applied materials|lam research|kla|synopsys|cadence|skyworks|qorvo|infineon|stmicroelectronics|renesas|cirrus logic|lattice|ampere|tenstorrent|cerebras|groq|sambanova|sifive|rivos|etched|d-matrix|ayar labs|lightmatter|astera labs)\b',re.I)
+NONTECH=re.compile(r'financ|account|audit|tax|marketing|sales|human resources|\bhr\b|recruit|legal|communications|supply chain|procurement|facilities|real estate|workplace|\bea\b|executive assistant',re.I)
+for r in out:
+  if SEMI.search(r[0]) and r[2] and r[2][0] in ('Business','RealEstate','Arts','Engineering','Product') and not NONTECH.search(r[1]):
+    r[2]=['Hardware']+[c for c in r[2] if c!='Hardware']
+
 out.sort(key=lambda r:-r[7])
 json.dump(out,open('all.json','w'))
 s=json.dumps(out,separators=(',',':'),ensure_ascii=False)

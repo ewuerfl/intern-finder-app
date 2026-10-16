@@ -224,6 +224,46 @@ for r in L:
 L[:] = keep
 print(f'quality filters removed {before - len(L)}: {dict(counts)}; {sum(1 for r in L if r[15]=="u")} marked unpaid')
 
+# ---------- Degree level from the posting's own text ----------
+# Titles rarely say "Master's/PhD only", so read the description (Workday job pages) for rows with no degree info.
+# Results carry over between runs, and each run reads a batch of new ones.
+_prevdeg = {r[8]: r[5] for r in prev.get('listings', []) if r[5]} if prev else {}
+for r in L:
+    if not r[5] and r[8] in _prevdeg: r[5] = _prevdeg[r[8]]
+_nodeg = set(prev.get('nodeg') or []) if prev else set()
+def _degs(text):
+    t = re.sub(r'<[^>]+>', ' ', text or '')
+    out = []
+    if re.search(r"\bbachelor'?s?\b|\bb\.?s\.?\b(?! ?or higher in)|\bbsc\b|undergraduate|\bb\.e\.|\bbs/ms\b|\bbs, ms\b|junior|senior year|sophomore", t, re.I): out.append("Bachelor's")
+    if re.search(r"\bmaster'?s?\b|\bm\.?s\.?\b(?!\s*(office|excel|word|teams|project|access|365|visio|power))|\bmsc\b|\bmba\b|\bm\.?eng\b|graduate student|\bms/phd\b", t, re.I): out.append("Master's")
+    if re.search(r"\bph\.?\s?d\b|doctoral|doctorate", t, re.I): out.append('PhD')
+    # "pursuing a Master's or PhD": only grad degrees mentioned as what you must be studying
+    return out
+if os.environ.get('GITHUB_ACTIONS'):
+    todo = [r[8] for r in L if not r[5] and r[8] not in _nodeg and 'myworkdayjobs.com' in r[8] and '/job/' in r[8]][:2500]
+    def _wd_desc(u):
+        try:
+            p = urllib.parse.urlparse(u); h = p.hostname
+            parts = [x for x in p.path.split('/') if x]
+            if re.fullmatch(r'[a-z]{2}-[A-Z]{2}', parts[0]): parts = parts[1:]
+            site, rest = parts[0], p.path.split('/job/', 1)[1]
+            with WD_CHECK:
+                st, _, body = _get(f'https://{h}/wday/cxs/{h.split(".")[0]}/{site}/job/{rest}', 'application/json')
+            return u, (json.loads(body).get('jobPostingInfo') or {}).get('jobDescription', '')
+        except Exception:
+            return u, None
+    t0 = _time.time(); got = 0
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        for u, desc in ex.map(lambda u: (u, None) if _time.time() - t0 > 200 else _wd_desc(u), todo):
+            if desc is None: continue
+            dg = _degs(desc); got += 1
+            if dg:
+                for r in L:
+                    if r[8] == u: r[5] = dg
+            else: _nodeg.add(u)
+    print(f'degree check: read {got} of {len(todo)} Workday postings, {sum(1 for r in L if r[5])} listings now have degree info')
+_nodeg &= {r[8] for r in L}
+
 # ---------- AI Rating (see rating.py) ----------
 from rating import estimate_brand, rating as _rating
 _n = collections.Counter(r[0] for r in L)
@@ -272,7 +312,7 @@ if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)
 dumps = lambda o: json.dumps(o, separators=(',', ':'), ensure_ascii=False)
 os.makedirs('../public', exist_ok=True)
 with open(OUT, 'w') as f:
-    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"domains":%s,\n"f500":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(domains), dumps(f500), dumps(summ)))
+    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"nodeg":%s,\n"domains":%s,\n"f500":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(sorted(_nodeg)), dumps(domains), dumps(f500), dumps(summ)))
     f.write(',\n'.join(dumps(r) for r in L))
     f.write('\n]}\n')
 print(f'{len(added)} new since last update; {len(L)} listings, {len(urls)} companies, {len(domains)} with a known domain, '
