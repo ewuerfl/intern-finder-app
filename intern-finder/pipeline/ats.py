@@ -5,7 +5,7 @@ Writes ats.json    [[company, title, location, [terms], url, posted_unix], ...]
 
 Runs inside the GitHub Action (which has normal internet access). Boards that fail or 404 are skipped quietly.
 """
-import json, re, time, sys, datetime, collections, urllib.request, urllib.error
+import json, re, time, sys, datetime, collections, urllib.request, urllib.error, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 UA = {'User-Agent': 'Mozilla/5.0 (InternFinder; +https://intern-finder-xi.vercel.app)', 'Accept': 'application/json'}
@@ -465,9 +465,34 @@ def wpcareers(host, co):
         if region and not re.search(r'\((US|Europe|Asia|Australia|Canada)\)', title): title += f' ({ {"United States": "US"}.get(region, region)})'
         yield co, title, loc, u, NOW - 7 * 86400
 
+def meta(_, co):
+    # metacareers.com: the search page carries its results as embedded JSON; fall back to the sitemap
+    import html as _h
+    H = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36', 'Accept': 'text/html', 'Accept-Language': 'en-US'}
+    def fetch(u):
+        with urllib.request.urlopen(urllib.request.Request(u, headers=H), timeout=25) as r:
+            return r.read().decode('utf-8', 'replace')
+    seen = set(); found = 0
+    for q in ('intern', 'internship', 'university grad'):
+        try: pg = fetch(f'https://www.metacareers.com/jobs?q={urllib.parse.quote(q)}&roles[0]=Internship')
+        except Exception as e:
+            print(f'::notice title=META::search {q} failed {type(e).__name__} {getattr(e,"code","")}', flush=True); continue
+        pg2 = pg.replace('\\"', '"').replace('\\/', '/')
+        for m in re.finditer(r'"id":"(\d{6,})","title":"([^"]{4,160})"(.{0,800}?)"locations":\[([^\]]*)\]', pg2):
+            jid, title, _, locs = m.groups()
+            if jid in seen: continue
+            seen.add(jid); found += 1
+            loc = '; '.join(re.findall(r'"([^"]+)"', locs))
+            yield 'Meta', _h.unescape(title), loc, f'https://www.metacareers.com/jobs/{jid}/', NOW - 7 * 86400
+        for jid, title in re.findall(r'href="/jobs/(\d{6,})/?"[^>]*>(?:<[^>]+>)*([^<]{4,160})<', pg):
+            if jid in seen: continue
+            seen.add(jid); found += 1
+            yield 'Meta', _h.unescape(title.strip()), '', f'https://www.metacareers.com/jobs/{jid}/', NOW - 7 * 86400
+        print(f'::notice title=META::search {q}: page {len(pg)} chars, {found} jobs so far', flush=True)
+
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers, 'meta': meta}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time

@@ -986,6 +986,7 @@ async function scanPast(){
       const sig=classifyEmail(decode(m.subject||''),decode(m.snippet||'')+' '+body);
       if(!sig&&!HIREWORDS.test(text))continue;
       if((JUNK.test(text)||ALERTFROM.test(from.toLowerCase()))&&!sig)continue;
+      if(/\b(confirm|verify|verification|activate|reset)\b[^.]{0,40}\b(email|e-mail|account|profile|password)\b|\b(career|candidate) (profile|account)\b|\bpassword\b|\bsign[- ]?in\b|\bjob alert|\btalent community\b/i.test(m.subject||''))continue;
       const ck=companyOf(from,text);if(!ck)continue;
       const lab=body.match(/(?:job title|position title|position|role|requisition(?: title)?|job)\s*[:\-–]\s*([^\n]{6,120})/i);
       const et=titleIn(m.snippet)||titleIn(body)||titleIn(m.subject)||(lab?cleanJobTitle(lab[1].replace(/\s*\(?(?:req|id|job id)[^)]*\)?$/i,'')):'')||'';const ids=new Set(text.match(/\b\d{6,}\b/g)||[]);
@@ -1016,6 +1017,10 @@ function alreadyTracked(p){
   const ids=new Set(((p.job?p.job.url:'')+' '+(p.subject||'')).match(/\d{5,}/g)||[]);
   const words=t=>new Set((t||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!/^(intern|interns|internship|summer|fall|spring|winter|20\d\d|the|and|for|with|program|undergraduate|graduate|student)$/.test(w)));
   const pw=words(p.title),ck=coKey(p.co||'');
+  // the email never named the job (title is just the company or the subject line): if you track exactly one
+  // application at that company, it's about that one; if several, it's one of them, so don't suggest it
+  const noTitle=!p.job&&(!pw.size||[...pw].every(w=>(p.co||'').toLowerCase().includes(w))||/thank|application|applying|interest|update|your/i.test(p.title));
+  if(noTitle&&ck){const same=Object.entries(APPS).filter(([k,a])=>coKey(a.co||'')===ck);if(same.length===1)return same[0][0];if(same.length>1)return 'multi'}
   for(const [k,a] of Object.entries(APPS)){
     if(a.url===url||a.url===p.mail)return k;
     for(const id of ids)if((a.url||'').includes(id))return k;
@@ -1035,7 +1040,7 @@ function pastBlock(){
   if(!PAST)return `<div class="past-bar"><span><b>Applied to places before you found Intern Finder?</b> We can read your "thanks for applying" emails (read-only, it stays in your browser) and match them to listings here.</span><button type="button" class="copy" id="pastScan">Find them in my email</button></div>`;
   const left=PAST.filter(p=>!alreadyTracked(p));
   const RK=s=>({Applied:0,'Online assessment':1,Interviewing:2,Offer:3,Rejected:3,Withdrew:3})[s]||0;
-  const ups=PAST.map(p=>[p,alreadyTracked(p)]).filter(([p,k])=>k&&APPS[k]&&p.status!=='Applied'&&p.status!==APPS[k].status&&(RK(p.status)>RK(APPS[k].status)||p.status==='Rejected'));
+  const ups=PAST.map(p=>[p,alreadyTracked(p)]).filter(([p,k])=>k&&k!=='multi'&&APPS[k]&&p.status!=='Applied'&&p.status!==APPS[k].status&&(RK(p.status)>RK(APPS[k].status)||p.status==='Rejected'));
   const upBlock=ups.length?`<div class="past-head"><b>Updates from your email (${ups.length})</b><span>Replies about applications you're already tracking.</span></div>`+ups.map(([p,k])=>{const a=APPS[k];
     return `<div class="past-row"><div class="past-main"><b>${esc(a.co||p.co)}</b> <span>${esc(a.title||p.title)}</span><small>Email says: ${esc(p.status)} · now: ${esc(a.status)}${p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''} · <a href="${esc(p.mail)}" target="_blank" rel="noopener">email ↗</a></small></div>
       <button type="button" class="copy past-upd" data-key="${k}" data-status="${esc(p.status)}">Set to ${esc(p.status)}</button></div>`}).join(''):'';
