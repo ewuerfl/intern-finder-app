@@ -478,14 +478,21 @@ def meta(_, co):
     cache = {}
     try: cache = json.load(open('../public/data.json')).get('metacache') or {}
     except Exception: pass
-    sm = fetch('https://www.metacareers.com/jobsearch/sitemap.xml')
+    try:
+        sm = fetch('https://www.metacareers.com/jobsearch/sitemap.xml')
+    except Exception as e:
+        print(f'::notice title=META::sitemap fetch failed {type(e).__name__} {getattr(e,"code","")} {str(e)[:150]}', flush=True); raise
     ids = list(dict.fromkeys(re.findall(r'/job_details/(\d{6,})', sm)))
     todo = [i for i in ids if i not in cache]
     def one(jid):
-        try:
-            pg = fetch(f'https://www.metacareers.com/jobs/{jid}/')
-        except Exception as e:
-            return jid, None
+        pg = ''
+        for u in (f'https://www.metacareers.com/profile/job_details/{jid}/', f'https://www.metacareers.com/jobs/{jid}/'):
+            try:
+                pg = fetch(u)
+                if 'ld+json' in pg or 'og:title' in pg: break
+            except Exception as e:
+                ERR[0] = f'{type(e).__name__} {getattr(e, "code", "")}'
+        if not pg: return jid, None
         title = ''; locs = []
         for blob in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', pg, re.S):
             try: j = json.loads(blob)
@@ -505,6 +512,7 @@ def meta(_, co):
             l = re.search(r'"locations":\[([^\]]*)\]', pg2)
             if l: locs = [x for x in re.findall(r'"([^"]{3,60})"', l.group(1))][:10]
         return jid, [title, locs]
+    ERR = ['']
     t0 = time.time(); got = 0
     with _TPE(max_workers=16) as ex:
         for jid, v in ex.map(lambda i: (i, None) if time.time() - t0 > 240 else one(i), todo[:1500]):
@@ -513,7 +521,7 @@ def meta(_, co):
     cache = {k: v for k, v in cache.items() if k in set(ids)}
     json.dump(cache, open('meta_cache.json', 'w'))
     sample = [cache[i][0] for i in list(cache)[:3]]
-    print(f'::notice title=META::sitemap {len(ids)} postings, read {got} new, {len(cache)} known; e.g. {sample}', flush=True)
+    print(f'::notice title=META::sitemap {len(ids)} postings, read {got} new, {len(cache)} known, {sum(1 for v in cache.values() if v and v[0])} with titles, last error {ERR[0]}; e.g. {sample}', flush=True)
     for jid in ids:
         v = cache.get(jid)
         if not v or not v[0]: continue
