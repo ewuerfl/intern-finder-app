@@ -482,7 +482,7 @@ def meta(_, co):
     try:
         sm = fetch('https://www.metacareers.com/jobsearch/sitemap.xml')
     except Exception as e:
-        print(f'::notice title=META::sitemap fetch failed {type(e).__name__} {getattr(e,"code","")} {str(e)[:150]}', flush=True); raise
+        raise
     ids = list(dict.fromkeys(re.findall(r'/job_details/(\d{6,})', sm)))
     todo = [i for i in ids if i not in cache]
     def one(jid):
@@ -521,8 +521,7 @@ def meta(_, co):
             cache[jid] = v; got += 1
     cache = {k: v for k, v in cache.items() if k in set(ids)}
     json.dump(cache, open('meta_cache.json', 'w'))
-    sample = [cache[i][0] for i in list(cache)[:3]]
-    print(f'::notice title=META::sitemap {len(ids)} postings, read {got} new, {len(cache)} known, {sum(1 for v in cache.values() if v and v[0])} with titles, last error {ERR[0]}; e.g. {sample}', flush=True)
+    print(f'Meta: {len(ids)} postings in sitemap, {got} read this run, {len(cache)} known', flush=True)
     for jid in ids:
         v = cache.get(jid)
         if not v or not v[0]: continue
