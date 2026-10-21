@@ -786,7 +786,33 @@ function cleanJobTitle(t){
   return t.replace(/[\s,;:.!\-–]+$/,'').trim();
 }
 const normT=t=>' '+(t||'').toLowerCase().replace(/[^a-z0-9+#]+/g,' ').trim()+' ';
-function signalOf(text){for(const [n,re] of SIGNALS)if(re.test(text))return n;return ''}
+function signalOf(text){return classifyEmail('',text)}
+/* Decide what a recruiting email actually says, reading the whole thing:
+   - sentences about what *might* happen ("if you're selected for an interview, we'll contact you") don't count
+   - a plain "thanks for applying / we received your application" email is just that, even if it mentions interviews
+   - an interview / assessment / offer / rejection needs wording that says it is happening now */
+const ST_OFFER=/\b(pleased to (offer|extend)|extend(ing)? (you )?an? offer|offer letter (is )?attached|congratulations[^.]{0,60}\boffer\b|we('d| would) like to offer you)\b/i;
+const ST_REJECT=/(not (be )?moving forward|decided (not to|to move forward with other)|move forward with other candidates|other candidates (whose|who)|not been selected|were not selected|will not be (proceeding|moving|advancing)|position has (been|now been) filled|regret to inform|unable to offer you|not (able|in a position) to (offer|move)|pursue other candidates|no longer (under consideration|being considered)|unfortunately,? (we|after)[^.]{0,160}(not|other candidates|decided))/i;
+const ST_INTERVIEW=/(invite you (to|for) (an? |the )?(interview|phone screen|conversation|virtual|onsite|on-site|superday|next round)|would like to (schedule|invite|set up|speak|talk|move you forward|move forward with your)|(please|kindly) (select|choose|pick|book|schedule)[^.]{0,40}(time|slot|interview)|schedule (a|an|your) (interview|call|phone screen|time to (talk|speak|chat))|selected (you )?(for|to move forward to) (an? )?(interview|next round|phone screen)|advance(d)? (you )?to the next (round|stage)|interview (has been )?(scheduled|confirmed|invitation)|your (upcoming|scheduled) interview|calendly\.com|goodtime\.io|invite you to complete (a |an )?(video|virtual) interview)/i;
+const ST_OA=/((please|kindly) complete|invite you to complete|invited to (take|complete)|you('ve| have) been invited to)[^.]{0,80}(assessment|coding (challenge|test)|hackerrank|codesignal|test|hirevue|challenge|questionnaire)|\b(hackerrank|codesignal|hirevue)\.com\/|assessment (link|invitation)|your (online )?assessment (is|has)/i;
+const ST_RECEIVED=/(thank you for (applying|your application|your interest)|thanks for applying|we('ve| have) received your application|application (has been |was )?(received|submitted)|received your application|confirm(ing)? (receipt|that we received)|your application (for|to) .{0,120}?(has been|was) (received|submitted))/i;
+const MAYBE=/\b(if|should|may|might|could|in the event|once we|as soon as|whether|in case|possible|potential(ly)?|typically|usually|generally|we will (contact|reach|be in touch)|we'll (contact|reach|be in touch)|will be contacted|next steps (will|may)|what to expect|faq)\b/i;
+function classifyEmail(subject,body){
+  const text=((subject||'')+'. '+(body||'')).replace(/\s+/g,' ');
+  // keep only sentences that state something, not ones about what could happen later
+  const sents=text.split(/(?<=[.!?])\s+|\n+/).filter(x=>x.length>3);
+  const firm=sents.filter(x=>!MAYBE.test(x)).join(' ');
+  const top=((subject||'')+'. '+(body||'').slice(0,700));
+  if(ST_OFFER.test(firm))return 'Offer';
+  if(ST_REJECT.test(firm))return 'Rejected';
+  const inv=ST_INTERVIEW.test(firm),oa=ST_OA.test(firm),rec=ST_RECEIVED.test(top);
+  if(inv&&!(rec&&!/interview/i.test(subject||'')&&!ST_INTERVIEW.test(top)))return 'Interviewing';
+  if(oa&&!(rec&&!/assessment|challenge|test/i.test(subject||'')&&!ST_OA.test(top)))return 'Online assessment';
+  if(rec||ST_RECEIVED.test(text))return 'Received';
+  if(inv)return 'Interviewing';
+  if(oa)return 'Online assessment';
+  return '';
+}
 function coKey(co){const w=co.replace(/\(.*?\)/g,'').split(/[\s,.&]+/).filter(x=>x.length>=3&&!STOP.has(x.toLowerCase()));return (w[0]||co).toLowerCase()}
 function qName(co){return '"'+co.replace(/\(.*?\)/g,'').replace(/["()]/g,'').replace(/,? (Inc|LLC|Corporation|Corp|Co)\.?$/i,'').trim()+'"'}
 async function gCall(tool,input){return gmail[tool](input)}
@@ -822,7 +848,7 @@ async function loadInbox(){
     for(const th of seen.values()){
       for(const m of (th.messages||[])){
         const text=decode((m.subject||'')+' '+(m.snippet||''))+' '+(m.body||'').slice(0,4000);
-        const from=senderText(m.sender),sig=signalOf(text);
+        const from=senderText(m.sender),sig=classifyEmail(decode(m.subject||''),decode(m.snippet||'')+' '+(m.body||'').slice(0,4000));
         const hiring=!!sig||HIREWORDS.test(text);
         if(((JUNK.test(text)||ALERTFROM.test(from))&&!sig)||!hiring)continue;
         const fromAts=ATSRE.test(from);
@@ -957,7 +983,7 @@ async function scanPast(){
       const body=(m.body||'').slice(0,4000);
       const text=decode((m.subject||'')+' '+(m.snippet||''))+' '+body;const from=m.sender||'';
       const head=decode((m.subject||'')+' '+(m.snippet||''))+' '+body.slice(0,1200);   // the top of the email names the job; lower down are 'similar jobs' lists
-      const sig=signalOf(text);
+      const sig=classifyEmail(decode(m.subject||''),decode(m.snippet||'')+' '+body);
       if(!sig&&!HIREWORDS.test(text))continue;
       if((JUNK.test(text)||ALERTFROM.test(from.toLowerCase()))&&!sig)continue;
       const ck=companyOf(from,text);if(!ck)continue;
