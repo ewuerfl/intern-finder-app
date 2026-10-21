@@ -767,6 +767,14 @@ const HIREWORDS=/\b(your application|thank you for applying|thanks for applying|
 function senderText(s){return (s||'').toLowerCase()}
 const ORDER={Applied:0,Received:0,'Online assessment':1,Interviewing:2,Offer:3,Rejected:3,Withdrew:3};
 function decode(t){const d=document.createElement('textarea');d.innerHTML=t||'';return d.value.replace(/[\u034f\u200c\u00a0]+/g,' ').replace(/\s+/g,' ').trim()}
+// "Test Engineering Intern and are currently reviewing your experience" -> "Test Engineering Intern"
+function cleanJobTitle(t){
+  t=(t||'').replace(/\s+/g,' ').trim();
+  const m=t.match(/^(.{6,}?)\s+(?:and|we|we're|we've|which|that|has|have|is|was|were|will|has been|at our|our|please|you|your|here|there|position|role|opening)\b/i);
+  if(m&&m[1].split(' ').length>=2)t=m[1];
+  return t.replace(/[\s,;:.!\-–]+$/,'').trim();
+}
+const normT=t=>' '+(t||'').toLowerCase().replace(/[^a-z0-9+#]+/g,' ').trim()+' ';
 function signalOf(text){for(const [n,re] of SIGNALS)if(re.test(text))return n;return ''}
 function coKey(co){const w=co.replace(/\(.*?\)/g,'').split(/[\s,.&]+/).filter(x=>x.length>=3&&!STOP.has(x.toLowerCase()));return (w[0]||co).toLowerCase()}
 function qName(co){return '"'+co.replace(/\(.*?\)/g,'').replace(/["()]/g,'').replace(/,? (Inc|LLC|Corporation|Corp|Co)\.?$/i,'').trim()+'"'}
@@ -792,7 +800,7 @@ async function loadInbox(){
     const toks=s=>new Set((s||'').toLowerCase().replace(/\(id:?\s*\d+\)/g,' ').split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!TSTOP.has(w)));
     const emailTitle=s=>{
       const re=/(?:application|applying|interest|applied)\s+(?:to|for|in)\s+(?:the\s+)?(?:position of\s+)?(.{6,140}?)(?:\s*\(ID:?\s*\d+\))?\s*(?:position|role|job|opening|at\s+[A-Z]|[.!,]|$)/gi;
-      for(const m of (s||'').matchAll(re)){const ti=m[1].trim();
+      for(const m of (s||'').matchAll(re)){const ti=cleanJobTitle(m[1]);
         if(ti.length>=8&&!/^(us|our|the company|this|your|amazon|google|meta|apple)\b/i.test(ti)&&/[a-z]{3,}\s+[a-z]{3,}/i.test(ti))return ti}
       return ''};
     const jobIds=s=>new Set((s||'').match(/\b\d{6,}\b/g)||[]);
@@ -932,7 +940,7 @@ async function scanPast(){
     const TSTOP=new Set(['intern','interns','internship','summer','fall','spring','winter','2025','2026','2027','2028','the','and','for','with','usa','program','co-op','coop','undergraduate','graduate','student','team']);
     const toks=t=>new Set((t||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!TSTOP.has(w)));
     const titleIn=t=>{const re=/(?:application|applying|interest|applied)\s+(?:to|for|in)\s+(?:the\s+)?(?:position of\s+)?(.{6,140}?)(?:\s*\(ID:?\s*\d+\))?\s*(?:position|role|job|opening|at\s+[A-Z]|[.!,]|$)/gi;
-      for(const m of (t||'').matchAll(re)){const ti=m[1].trim();if(ti.length>=8&&/[a-z]{3,}\s+[a-z]{3,}/i.test(ti)&&!/^(us|our|this|your)\b/i.test(ti))return ti}return ''};
+      for(const m of (t||'').matchAll(re)){const ti=cleanJobTitle(m[1]);if(ti.length>=8&&/[a-z]{3,}\s+[a-z]{3,}/i.test(ti)&&!/^(us|our|this|your)\b/i.test(ti))return ti}return ''};
     const out=new Map();const rank=x=>x?ORDER[x]+1:0;
     for(const th of seen.values())for(const m of (th.messages||[])){
       const text=decode((m.subject||'')+' '+(m.snippet||''));const from=m.sender||'';
@@ -944,7 +952,10 @@ async function scanPast(){
       // best listing at that company: same job number, else most of the title words in common
       let best=null,bs=0;
       for(const x of coIndex().byKey.get(ck)){let sc=0;for(const id of ids)if(x.url.includes(id))sc=100;
-        if(!sc&&et){const a=toks(x.title),e=toks(et);let n=0;for(const w of a)if(e.has(w))n++;sc=a.size&&e.size?n/Math.max(a.size,e.size):0}
+        // the listing's whole title appears in the email: that's the job
+        if(!sc){const nt=normT(x.title.replace(/\(.*?\)/g,' '));if(nt.trim().length>=8&&normT(text).includes(nt))sc=0.95+nt.length/1e4}
+        if(!sc&&et){const a=toks(x.title),e=toks(et);let n=0;for(const w of a)if(e.has(w))n++;
+          sc=a.size&&e.size?Math.max(n/Math.max(a.size,e.size),n===a.size&&a.size>=2?0.85:0):0}
         if(sc>bs){bs=sc;best=x}}
       const job=bs>=0.6?best:null;
       const co=job?job.co:coIndex().byKey.get(ck)[0].co;
