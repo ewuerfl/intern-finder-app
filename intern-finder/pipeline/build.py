@@ -26,7 +26,7 @@ RULES=[
  ('Legal',r'\blegal|\blaw\b|paralegal|policy|government|public affairs|compliance|regulatory|congress'),
  ('Nonprofit',r'nonprofit|non-profit|education|teach|tutor|community (engagement|outreach|health)|social work|youth|volunteer'),
  ('Retail',r'retail|merchandis|\bbuyer|buying|fashion|apparel|store|e-?commerce|consumer goods'),
- ('RealEstate',r'real estate|construction|property|leasing|architect|development associate|land'),
+ ('RealEstate',r'real estate|construction|property|leasing|architect|development associate|\bland\b'),
  ('Product',r'product manag|product owner|product design|\bproduct\b|\bux\b|\bui\b|user experience|designer|design intern|graphic|visual design|industrial design|program manag'),
  ('Engineering',r'systems integration|technical operations|automation|measurement systems|civil|industrial|manufactur|process engineer|quality|structural|reliability|production|facilities|nuclear|mining|petroleum|systems engineer|field engineer|test engineer|structures|engineer'),
  ('Business',r'business|operations|strategy|supply chain|logistic|procurement|sourcing|project manag|management|analyst|planning|administrat|executive|office|corporate|purchasing|commercial|leadership|coo\b'),
