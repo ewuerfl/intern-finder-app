@@ -444,7 +444,12 @@ def wpcareers(host, co):
     for u in sorted(urls):
         slug = u.rstrip('/').rsplit('/', 1)[-1]
         if not re.search(r'intern|co-op|coop|summer|student', slug): continue
-        title = slug.replace('-', ' ').title(); loc = ''
+        REG = {'us': 'United States', 'usa': 'United States', 'europe': 'Europe', 'asia': 'Asia', 'australia': 'Australia', 'emea': 'Europe', 'apac': 'Asia', 'canada': 'Canada'}
+        words = slug.split('-'); region = ''
+        while words and words[-1] in REG:
+            region = REG[words.pop()]
+        fix = {'phd': 'PhD', 'bs': 'BS', 'ms': 'MS', 'mba': 'MBA', 'fpga': 'FPGA', 'dmm': 'DMM', 'ml': 'ML', 'ai': 'AI', 'it': 'IT'}
+        title = ' '.join(fix.get(w, w.capitalize()) for w in words).replace('BS MS', 'BS/MS'); loc = ''
         try:
             pg = fetch(u)
             t = re.search(r'<h1[^>]*>(.*?)</h1>', pg, re.S) or re.search(r'<title>([^<|–-]+)', pg)
@@ -456,7 +461,8 @@ def wpcareers(host, co):
         except Exception:
             pass
         if not loc:
-            loc = 'United States' if re.search(r'-us$|\(us\)', slug + title.lower()) else ''
+            loc = region or ('United States' if re.search(r'\(us\)', title.lower()) else '')
+        if region and not re.search(r'\((US|Europe|Asia|Australia|Canada)\)', title): title += f' ({ {"United States": "US"}.get(region, region)})'
         yield co, title, loc, u, NOW - 7 * 86400
 
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
