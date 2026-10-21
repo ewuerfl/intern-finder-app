@@ -150,8 +150,19 @@ const GmailApi=(()=>{
   }
   const hdr=(m,n)=>((m.payload&&m.payload.headers)||[]).find(h=>h.name.toLowerCase()===n)?.value||'';
   const msg=m=>{const d=hdr(m,'date');let iso='';try{iso=d?new Date(d).toISOString():''}catch(e){}
-    return {subject:hdr(m,'subject'),sender:hdr(m,'from'),date:iso,snippet:m.snippet||''}};
-  const thread=async id=>{const t=await get(`threads/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`);
+    return {subject:hdr(m,'subject'),sender:hdr(m,'from'),date:iso,snippet:m.snippet||'',body:bodyText(m.payload)}};
+  // plain text of an email (text part, else HTML with tags removed), first ~6000 characters
+  const b64=d=>{try{const s=atob((d||'').replace(/-/g,'+').replace(/_/g,'/'));try{return decodeURIComponent(escape(s))}catch(e){return s}}catch(e){return ''}};
+  function bodyText(p){
+    if(!p)return '';let plain='',html='';
+    (function walk(x){if(!x)return;const mt=x.mimeType||'';
+      if(x.body&&x.body.data){if(mt==='text/plain')plain+=b64(x.body.data)+'\n';else if(mt==='text/html')html+=b64(x.body.data)}
+      (x.parts||[]).forEach(walk)})(p);
+    let t=plain||html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi,'\n').replace(/<[^>]+>/g,' ');
+    const d=document.createElement('textarea');d.innerHTML=t.slice(0,20000);t=d.value;
+    return t.replace(/[ \t\u00a0]+/g,' ').replace(/\n\s*\n+/g,'\n').trim().slice(0,6000);
+  }
+  const thread=async(id,full)=>{const t=await get(full?`threads/${id}?format=full`:`threads/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`);
     const ms=(t.messages||[]).map(msg);return {id,viewUrl:'https://mail.google.com/mail/u/0/#all/'+id,messageCount:ms.length,messages:ms}};
   async function pool(ids,n,fn){const out=[];let i=0;await Promise.all(Array.from({length:n},async()=>{while(i<ids.length){const k=i++;try{out[k]=await fn(ids[k])}catch(e){if(e.code==='needs_reauth')throw e}}}));return out.filter(Boolean)}
   async function rememberGmail(t){
@@ -170,8 +181,8 @@ const GmailApi=(()=>{
     disconnect,
     canCheckQuietly(){if(!token)loadTok();return (token&&Date.now()<expires-60000)||!!blob()},
     setSilent(v){silent=v},
-    async search_threads({query,pageSize}){const r=await get(`threads?q=${encodeURIComponent(query)}&maxResults=${pageSize||30}`);
-      return {threads:await pool((r.threads||[]).map(t=>t.id),6,thread)}},
+    async search_threads({query,pageSize,full}){const r=await get(`threads?q=${encodeURIComponent(query)}&maxResults=${pageSize||30}`);
+      return {threads:await pool((r.threads||[]).map(t=>t.id),6,id=>thread(id,full))}},
     async get_thread({threadId}){return thread(threadId)}
   };
 })();
@@ -452,12 +463,12 @@ function card(x,m){
     +`<span data-tracktag="${appKey(x.url)}">${trackTag(x.url)}</span>`+(x.prog?'<span class="tag prog">Program page</span>':'')+(x.sum?'<span class="tag ai">AI summary</span>':'')
     +(x.deg.length?`<span class="tag">${esc(x.deg.map(d=>d.replace("'s","").replace('Bachelor','BS').replace('Master','MS').replace('Associate','AS')).join('/'))}</span>`:'');
   const pay=x.pay||(x.hr?'$'+x.hr+'/hr':'');
-  const right=m?`<span class="fit">${m.score}<small>fit</small></span>`:`${ring(x.rt)}${x.prog?'':`<span class="ago">${esc(ago(x.t))}</span>`}`;
+  const right=m?`<span class="fit">${m.score}<small>fit</small></span>`:x.closed&&!x.rt?'':`${ring(x.rt)}${x.prog||x.closed?'':`<span class="ago">${esc(ago(x.t))}</span>`}`;
   return `<details class="item">
     <summary>
       ${logo(x.co)}
       <span class="body">
-        <span class="coline"><span class="cn">${esc(x.co)}</span>${ADDED.has(x.url)?'<span class="new just">Just added</span>':fresh?'<span class="new">New</span>':''}</span>
+        <span class="coline"><span class="cn">${esc(x.co)}</span>${x.closed?'<span class="tag warn">No longer listed</span>':''}${ADDED.has(x.url)?'<span class="new just">Just added</span>':fresh?'<span class="new">New</span>':''}</span>
         <span class="title">${esc(x.title)}</span>
         <span class="facts"><span>${ICO.pin}${esc(loc)}</span>${term?`<span>${ICO.cal}${esc(term)}</span>`:''}${pay?`<span>${ICO.pay}${esc(pay)}</span>`:''}</span>
         ${m?`<span class="why">${esc(m.why)}${m.gap?`<span class="gap">To stand out: ${esc(m.gap)}</span>`:''}</span>`:''}<span class="meta">${tags}</span></span>
@@ -791,7 +802,7 @@ async function loadInbox(){
     }
     const seen=new Map();
     for(const q of queries.slice(0,8)){
-      const p=await gCall('search_threads',{query:q,pageSize:30,view:'THREAD_VIEW_MINIMAL'});
+      const p=await gCall('search_threads',{query:q,pageSize:30,full:true});
       for(const t of (p.threads||[]))if(!seen.has(t.id))seen.set(t.id,t);
     }
     // Gmail groups same-subject emails into one conversation (e.g. eight "Thank you for applying" emails from Amazon),
@@ -810,14 +821,14 @@ async function loadInbox(){
     const groups=new Map();
     for(const th of seen.values()){
       for(const m of (th.messages||[])){
-        const text=decode((m.subject||'')+' '+(m.snippet||''));
+        const text=decode((m.subject||'')+' '+(m.snippet||''))+' '+(m.body||'').slice(0,4000);
         const from=senderText(m.sender),sig=signalOf(text);
         const hiring=!!sig||HIREWORDS.test(text);
         if(((JUNK.test(text)||ALERTFROM.test(from))&&!sig)||!hiring)continue;
         const fromAts=ATSRE.test(from);
         const cands=apps.filter(([k,a])=>{const ck=coKey(a.co||'');return ck&&(from.includes(ck)||(fromAts&&text.toLowerCase().includes(ck)))});
         if(!cands.length&&!fromAts&&!sig)continue;
-        const et=emailTitle(m.snippet)||emailTitle(m.subject),ids=jobIds(text);
+        const et=emailTitle(m.snippet)||emailTitle(m.body)||emailTitle(m.subject),ids=jobIds(text);
         let match=null,co=cands.length?cands[0][1].co:'';
         if(cands.length){
           const best=cands.map(([k,a])=>[k,fit(a,et,ids)]).sort((x,y)=>y[1]-x[1])[0];
@@ -936,24 +947,27 @@ async function scanPast(){
   pastState='loading';pastErr='';if(view==='apps')renderApps();
   try{
     const seen=new Map();
-    for(const q of PAST_Q){const p=await gCall('search_threads',{query:q,pageSize:50});for(const t of (p.threads||[]))if(!seen.has(t.id))seen.set(t.id,t)}
+    for(const q of PAST_Q){const p=await gCall('search_threads',{query:q,pageSize:50,full:true});for(const t of (p.threads||[]))if(!seen.has(t.id))seen.set(t.id,t)}
     const TSTOP=new Set(['intern','interns','internship','summer','fall','spring','winter','2025','2026','2027','2028','the','and','for','with','usa','program','co-op','coop','undergraduate','graduate','student','team']);
     const toks=t=>new Set((t||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!TSTOP.has(w)));
     const titleIn=t=>{const re=/(?:application|applying|interest|applied)\s+(?:to|for|in)\s+(?:the\s+)?(?:position of\s+)?(.{6,140}?)(?:\s*\(ID:?\s*\d+\))?\s*(?:position|role|job|opening|at\s+[A-Z]|[.!,]|$)/gi;
       for(const m of (t||'').matchAll(re)){const ti=cleanJobTitle(m[1]);if(ti.length>=8&&/[a-z]{3,}\s+[a-z]{3,}/i.test(ti)&&!/^(us|our|this|your)\b/i.test(ti))return ti}return ''};
     const out=new Map();const rank=x=>x?ORDER[x]+1:0;
     for(const th of seen.values())for(const m of (th.messages||[])){
-      const text=decode((m.subject||'')+' '+(m.snippet||''));const from=m.sender||'';
+      const body=(m.body||'').slice(0,4000);
+      const text=decode((m.subject||'')+' '+(m.snippet||''))+' '+body;const from=m.sender||'';
+      const head=decode((m.subject||'')+' '+(m.snippet||''))+' '+body.slice(0,1200);   // the top of the email names the job; lower down are 'similar jobs' lists
       const sig=signalOf(text);
       if(!sig&&!HIREWORDS.test(text))continue;
       if((JUNK.test(text)||ALERTFROM.test(from.toLowerCase()))&&!sig)continue;
       const ck=companyOf(from,text);if(!ck)continue;
-      const et=titleIn(m.snippet)||titleIn(m.subject)||'';const ids=new Set(text.match(/\b\d{6,}\b/g)||[]);
+      const lab=body.match(/(?:job title|position title|position|role|requisition(?: title)?|job)\s*[:\-–]\s*([^\n]{6,120})/i);
+      const et=titleIn(m.snippet)||titleIn(body)||titleIn(m.subject)||(lab?cleanJobTitle(lab[1].replace(/\s*\(?(?:req|id|job id)[^)]*\)?$/i,'')):'')||'';const ids=new Set(text.match(/\b\d{6,}\b/g)||[]);
       // best listing at that company: same job number, else most of the title words in common
       let best=null,bs=0;
       for(const x of coIndex().byKey.get(ck)){let sc=0;for(const id of ids)if(x.url.includes(id))sc=100;
         // the listing's whole title appears in the email: that's the job
-        if(!sc){const nt=normT(x.title.replace(/\(.*?\)/g,' '));if(nt.trim().length>=8&&normT(text).includes(nt))sc=0.95+nt.length/1e4}
+        if(!sc){const nt=normT(x.title.replace(/\(.*?\)/g,' '));if(nt.trim().length>=8&&normT(head).includes(nt))sc=0.95+nt.length/1e4}
         if(!sc&&et){const a=toks(x.title),e=toks(et);let n=0;for(const w of a)if(e.has(w))n++;
           sc=a.size&&e.size?Math.max(n/Math.max(a.size,e.size),n===a.size&&a.size>=2?0.85:0):0}
         if(sc>bs){bs=sc;best=x}}
@@ -972,20 +986,20 @@ async function scanPast(){
 // Is this email's job already in My applications? Same link, same job number, or same company with mostly the same title.
 function alreadyTracked(p){
   const url=p.job?p.job.url:p.mail;
-  if(APPS[appKey(url)]||APPS[appKey(p.mail)])return true;
+  if(APPS[appKey(url)])return appKey(url);if(APPS[appKey(p.mail)])return appKey(p.mail);
   const ids=new Set(((p.job?p.job.url:'')+' '+(p.subject||'')).match(/\d{5,}/g)||[]);
   const words=t=>new Set((t||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(w=>w.length>=3&&!/^(intern|interns|internship|summer|fall|spring|winter|20\d\d|the|and|for|with|program|undergraduate|graduate|student)$/.test(w)));
   const pw=words(p.title),ck=coKey(p.co||'');
-  for(const a of Object.values(APPS)){
-    if(a.url===url||a.url===p.mail)return true;
-    for(const id of ids)if((a.url||'').includes(id))return true;
+  for(const [k,a] of Object.entries(APPS)){
+    if(a.url===url||a.url===p.mail)return k;
+    for(const id of ids)if((a.url||'').includes(id))return k;
     if(ck&&coKey(a.co||'')===ck){
       const aw=words(a.title);if(!pw.size||!aw.size)continue;
       let n=0;for(const w of pw)if(aw.has(w))n++;
-      if(n/Math.min(pw.size,aw.size)>=0.6)return true;
+      if(n/Math.min(pw.size,aw.size)>=0.6)return k;
     }
   }
-  return false;
+  return '';
 }
 function pastBlock(){
   if(!gmail)return '';
@@ -994,7 +1008,12 @@ function pastBlock(){
   if(pastState==='error')return `<div class="past-bar"><span>${esc(pastErr)}</span><button type="button" class="copy" id="pastScan">Try again</button></div>`;
   if(!PAST)return `<div class="past-bar"><span><b>Applied to places before you found Intern Finder?</b> We can read your "thanks for applying" emails (read-only, it stays in your browser) and match them to listings here.</span><button type="button" class="copy" id="pastScan">Find them in my email</button></div>`;
   const left=PAST.filter(p=>!alreadyTracked(p));
-  if(!left.length)return `<div class="past-bar"><span>${PAST.length?'Everything we found in your email is in your list.':'No past applications found in your email.'}</span><button type="button" class="copy" id="pastScan">Check again</button></div>`;
+  const RK=s=>({Applied:0,'Online assessment':1,Interviewing:2,Offer:3,Rejected:3,Withdrew:3})[s]||0;
+  const ups=PAST.map(p=>[p,alreadyTracked(p)]).filter(([p,k])=>k&&APPS[k]&&p.status!=='Applied'&&p.status!==APPS[k].status&&(RK(p.status)>RK(APPS[k].status)||p.status==='Rejected'));
+  const upBlock=ups.length?`<div class="past-head"><b>Updates from your email (${ups.length})</b><span>Replies about applications you're already tracking.</span></div>`+ups.map(([p,k])=>{const a=APPS[k];
+    return `<div class="past-row"><div class="past-main"><b>${esc(a.co||p.co)}</b> <span>${esc(a.title||p.title)}</span><small>Email says: ${esc(p.status)} · now: ${esc(a.status)}${p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''} · <a href="${esc(p.mail)}" target="_blank" rel="noopener">email ↗</a></small></div>
+      <button type="button" class="copy past-upd" data-key="${k}" data-status="${esc(p.status)}">Set to ${esc(p.status)}</button></div>`}).join(''):'';
+  if(!left.length)return upBlock+`<div class="past-bar"><span>${PAST.length?'Everything we found in your email is in your list.':'No past applications found in your email.'}</span><button type="button" class="copy" id="pastScan">Check again</button></div>`;
   const row=p=>{const i=PAST.indexOf(p);
     const when=p.date?' · '+new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
     const st=`<span class="tag ${p.status==='Rejected'?'warn':p.status==='Applied'?'term':'good'}">${esc(p.status==='Applied'?'Application received':p.status)}</span>`;
@@ -1003,7 +1022,7 @@ function pastBlock(){
     return `<div class="past-item">${bar}<div class="item"><div class="sumlike">${logo(p.co)}<span class="body"><span class="coline"><span class="cn">${esc(p.co)}</span></span>
       <span class="title">${esc(p.title)}</span><span class="facts"><span>This exact posting isn't on Intern Finder</span></span></span></div></div></div>`};
   const m=left.filter(p=>p.job),o=left.filter(p=>!p.job);
-  return `<div class="past-head"><b>Found in your email (${left.length})</b><span>Applications you sent before using Intern Finder. Add the ones that are right.</span>
+  return upBlock+`<div class="past-head"><b>Found in your email (${left.length})</b><span>Applications you sent before using Intern Finder. Add the ones that are right.</span>
       <button type="button" class="copy" id="pastAll">Add all ${left.length}</button></div>
     ${m.map(row).join('')}${o.length?`<div class="past-sub">Not on Intern Finder (added with a link to the email)</div>${o.map(row).join('')}`:''}
     ${apps_divider()}`;
@@ -1013,10 +1032,12 @@ function addPast(p){
   const url=p.job?p.job.url:p.mail,x=p.job||{};
   const ts=p.date?Date.parse(p.date)||Date.now():Date.now();
   return tdb.collection('data/users/'+tuid).doc(appKey(url)).set({kind:'app',url,co:p.co,title:p.title,loc:(x.locs||[])[0]||'',status:p.status,
-    appliedAt:ts,updatedAt:Date.now(),...(p.job?{}:{source:'email'})});
+    appliedAt:ts,updatedAt:Date.now(),...(p.job?{snap:snapOf(p.job)}:{source:'email'})});
 }
 $('list').addEventListener('click',async e=>{
   if(e.target.closest('#pastScan')){scanPast();return}
+  const up=e.target.closest('.past-upd');
+  if(up&&tdb){up.disabled=true;try{await tdb.collection('data/users/'+tuid).doc(up.dataset.key).update({status:up.dataset.status,updatedAt:Date.now()});up.textContent='Updated'}catch(err){up.disabled=false;up.textContent='Could not update'}setTimeout(()=>view==='apps'&&renderApps(),400);return}
   const one=e.target.closest('.past-add'),all=e.target.closest('#pastAll');if(!(one||all)||!tdb||!PAST)return;
   const btn=one||all;btn.disabled=true;btn.textContent='Adding…';
   try{
@@ -1032,7 +1053,18 @@ function sameJob(url){
   const k=jobId(url);return k?_byId.get(k):null;
 }
 function jobId(u){try{const p=new URL(u);const ids=(p.pathname+'?'+p.search).match(/\d{5,}/g);return ids?p.hostname.replace(/^www\./,'')+'#'+ids[ids.length-1]:''}catch(e){return ''}}
+function snapOf(x){return {co:x.co,title:x.title,cats:x.cats,terms:x.terms,locs:x.locs,deg:x.deg,sp:x.sp,t:x.t,url:x.url,pay:x.pay,rt:x.rt,brand:x.brand,hr:x.hr,sum:x.sum||null}}
+function fromSnap(a){const s=a.snap||{};
+  return {id:-1,co:s.co||a.co||'',title:s.title||a.title||'Internship',cats:s.cats||[],cat:(s.cats||[])[0]||'',terms:s.terms||[],locs:s.locs||(a.loc?[a.loc]:[]),deg:s.deg||[],sp:s.sp||'',
+    t:s.t||((a.appliedAt||Date.now())/1000),url:a.url,pay:s.pay||'',prog:false,about:'',rt:s.rt||0,brand:s.brand||0,hr:s.hr||null,unpaid:false,f500:false,sum:s.sum||null,closed:true,hay:''}}
+let _snapping=false;
+async function backfillSnaps(){   // save a copy of each tracked job while it's still listed
+  if(_snapping||!tdb)return;_snapping=true;
+  try{for(const [k,a] of Object.entries(APPS)){if(a.snap||a.source==='email')continue;const x=BYURL[a.url]||sameJob(a.url);
+    if(x)try{await tdb.collection('data/users/'+tuid).doc(k).update({snap:snapOf(x)})}catch(e){}}}finally{_snapping=false}
+}
 function renderApps(){
+  setTimeout(backfillSnaps,1500);
   const apps=Object.entries(APPS).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0));
   const counts={};apps.forEach(([k,a])=>counts[a.status]=(counts[a.status]||0)+1);
   $('count').innerHTML=`<b>${apps.length}</b> application${apps.length===1?'':'s'}`+(apps.length?' · '+STATUSES.filter(s=>counts[s]).map(s=>`${counts[s]} ${esc(s.toLowerCase())}`).join(' · '):'');
@@ -1042,6 +1074,7 @@ function renderApps(){
   $('list').innerHTML=found+apps.map(([k,a])=>{
     const x=BYURL[a.url]||sameJob(a.url);
     if(x)return card(x);
+    if(a.source!=='email'){const c=card(fromSnap(a));return c.replace('<details class="item">','<details class="item closed">')}
     return `<div class="item gone"><div class="ticket" style="border:0">
       <div class="gone"><div class="title">${esc(a.title||'Internship')}</div><div class="co">${esc(a.co||'')} · ${a.source==='email'?'added from your email (this exact posting isn\'t on Intern Finder)':'this posting is no longer in the list (it may have closed)'}</div></div>
       <div class="cta"><a class="apply" href="${esc(a.url)}" target="_blank" rel="noopener">${a.source==='email'?'Open email ↗':'Open posting ↗'}</a>
@@ -1059,7 +1092,7 @@ $('list').addEventListener('click',e=>{
   const el=e.target.closest('[data-track]');if(!el||!tdb)return;
   const url=el.dataset.url,key=appKeyFor(url),ref=tdb.collection('data/users/'+tuid).doc(key);
   if(e.target.closest('.tk-add')){const x=BYURL[url]||{};
-    tWrite(el,()=>ref.set({kind:'app',url,co:x.co||'',title:x.title||'',loc:(x.locs||[])[0]||'',status:'Applied',appliedAt:Date.now(),updatedAt:Date.now()}));}
+    tWrite(el,()=>ref.set({kind:'app',url,co:x.co||'',title:x.title||'',loc:(x.locs||[])[0]||'',status:'Applied',appliedAt:Date.now(),updatedAt:Date.now(),...(x.url?{snap:snapOf(x)}:{})}));}
   else if(e.target.closest('.tk-rm'))tWrite(el,()=>ref.delete());
 });
 $('list').addEventListener('change',e=>{
