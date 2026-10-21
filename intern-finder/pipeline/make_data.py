@@ -346,7 +346,7 @@ if prev and prev.get('listings') == json.loads(json.dumps(L, ensure_ascii=False)
 dumps = lambda o: json.dumps(o, separators=(',', ':'), ensure_ascii=False)
 os.makedirs('../public', exist_ok=True)
 with open(OUT, 'w') as f:
-    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"nodeg":%s,\n"domains":%s,\n"f500":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(sorted(_nodeg)), dumps(domains), dumps(f500), dumps(summ)))
+    f.write('{"asof":%d,\n"added":%s,\n"dead":%s,\n"nodeg":%s,\n"metacache":%s,\n"domains":%s,\n"f500":%s,\n"summaries":%s,\n"listings":[\n' % (asof, dumps(added), dumps(dead), dumps(sorted(_nodeg)), dumps(json.load(open('meta_cache.json')) if os.path.exists('meta_cache.json') else (prev.get('metacache') or {})), dumps(domains), dumps(f500), dumps(summ)))
     f.write(',\n'.join(dumps(r) for r in L))
     f.write('\n]}\n')
 print(f'{len(added)} new since last update; {len(L)} listings, {len(urls)} companies, {len(domains)} with a known domain, '

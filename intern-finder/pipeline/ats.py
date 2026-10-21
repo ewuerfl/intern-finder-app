@@ -466,46 +466,58 @@ def wpcareers(host, co):
         yield co, title, loc, u, NOW - 7 * 86400
 
 def meta(_, co):
-    # metacareers.com: try the search page's embedded results; also report what the sitemap offers
-    import html as _h
+    # metacareers.com: the search pages are drawn in the browser, but its jobs sitemap lists every posting.
+    # Read each posting page once (title, places) and remember it in meta_cache.json, so later runs only read new ones.
+    import html as _h, os
+    from concurrent.futures import ThreadPoolExecutor as _TPE
     H = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'Sec-Fetch-Mode': 'navigate'}
+         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9'}
     def fetch(u):
         with urllib.request.urlopen(urllib.request.Request(u, headers=H), timeout=25) as r:
             return r.read().decode('utf-8', 'replace')
-    seen = set()
-    for path in ('/jobs?q=intern', '/jobs/?q=intern&roles%5B0%5D=Internship', '/jobs/?roles%5B0%5D=Internship', '/jobsearch?q=intern', '/jobs'):
+    cache = {}
+    try: cache = json.load(open('../public/data.json')).get('metacache') or {}
+    except Exception: pass
+    sm = fetch('https://www.metacareers.com/jobsearch/sitemap.xml')
+    ids = list(dict.fromkeys(re.findall(r'/job_details/(\d{6,})', sm)))
+    todo = [i for i in ids if i not in cache]
+    def one(jid):
         try:
-            pg = fetch('https://www.metacareers.com' + path)
+            pg = fetch(f'https://www.metacareers.com/jobs/{jid}/')
         except Exception as e:
-            body = ''
-            try: body = e.read()[:150].decode('utf-8', 'replace')
-            except Exception: pass
-            print(f'::notice title=META::{path} -> {type(e).__name__} {getattr(e,"code","")} {body!r}', flush=True); continue
-        pg2 = pg.replace('\\"', '"').replace('\\/', '/')
-        ids = set(re.findall(r'/jobs/(\d{6,})', pg2))
-        n0 = len(seen)
-        for m in re.finditer(r'"id":"(\d{6,})","title":"([^"]{4,160})"', pg2):
-            jid, title = m.groups()
-            if jid in seen: continue
-            seen.add(jid)
-            blk = pg2[m.end():m.end() + 1500]
-            l = re.search(r'"locations":\[([^\]]*)\]', blk)
-            loc = '; '.join(re.findall(r'"([^"]+)"', l.group(1))) if l else ''
-            yield 'Meta', _h.unescape(title), loc, f'https://www.metacareers.com/jobs/{jid}/', NOW - 7 * 86400
-        print(f'::notice title=META::{path} ok {len(pg)} chars, {len(ids)} job ids, {len(seen) - n0} with titles; start={pg[:120]!r}', flush=True)
-    try:
-        rb = fetch('https://www.metacareers.com/robots.txt')
-        sms = re.findall(r'(?im)^sitemap:\s*(\S+)', rb)
-        print(f'::notice title=META::robots sitemaps: {sms[:5]}', flush=True)
-        for sm in sms[:3]:
-            try:
-                x = fetch(sm); locs = re.findall(r'<loc>([^<]+)</loc>', x)
-                print(f'::notice title=META::sitemap {sm} -> {len(locs)} locs e.g. {locs[:3]}', flush=True)
-            except Exception as e:
-                print(f'::notice title=META::sitemap {sm} failed {type(e).__name__} {getattr(e,"code","")}', flush=True)
-    except Exception as e:
-        print(f'::notice title=META::robots failed {type(e).__name__} {getattr(e,"code","")}', flush=True)
+            return jid, None
+        title = ''; locs = []
+        for blob in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', pg, re.S):
+            try: j = json.loads(blob)
+            except Exception: continue
+            if isinstance(j, dict) and 'JobPosting' in str(j.get('@type')):
+                title = j.get('title', '')
+                jl = j.get('jobLocation') or []
+                for l in (jl if isinstance(jl, list) else [jl]):
+                    a = (l or {}).get('address') or {}
+                    n = ', '.join(v for v in (a.get('addressLocality'), a.get('addressRegion')) if v and isinstance(v, str))
+                    if n: locs.append(n)
+        if not title:
+            m = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', pg) or re.search(r'<title>([^<]+)</title>', pg)
+            if m: title = re.sub(r'\s*[|\-–]\s*Meta Careers.*$', '', _h.unescape(m.group(1))).strip()
+        if not locs:
+            pg2 = pg.replace('\\"', '"')
+            l = re.search(r'"locations":\[([^\]]*)\]', pg2)
+            if l: locs = [x for x in re.findall(r'"([^"]{3,60})"', l.group(1))][:10]
+        return jid, [title, locs]
+    t0 = time.time(); got = 0
+    with _TPE(max_workers=16) as ex:
+        for jid, v in ex.map(lambda i: (i, None) if time.time() - t0 > 240 else one(i), todo[:1500]):
+            if v is None: continue
+            cache[jid] = v; got += 1
+    cache = {k: v for k, v in cache.items() if k in set(ids)}
+    json.dump(cache, open('meta_cache.json', 'w'))
+    sample = [cache[i][0] for i in list(cache)[:3]]
+    print(f'::notice title=META::sitemap {len(ids)} postings, read {got} new, {len(cache)} known; e.g. {sample}', flush=True)
+    for jid in ids:
+        v = cache.get(jid)
+        if not v or not v[0]: continue
+        yield 'Meta', v[0], '; '.join(v[1]), f'https://www.metacareers.com/jobs/{jid}/', NOW - 7 * 86400
 
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
