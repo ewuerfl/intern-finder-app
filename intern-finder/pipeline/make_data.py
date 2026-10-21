@@ -280,6 +280,15 @@ if os.environ.get('GITHUB_ACTIONS'):
     print(f'degree check: read {got} of {len(todo)} Workday postings, {sum(1 for r in L if r[5])} listings now have degree info')
 _nodeg &= {r[8] for r in L}
 
+# Coverage check: well-known companies with no internships at all on the site this run (worth a look)
+try:
+    from f500 import norm as _n
+    _have = {_n(r[0]) for r in L}
+    _gap = sorted(n for n, sc in tiers.T.items() if sc >= 8.5 and _n(n) not in _have)
+    print('::notice title=Coverage check::%d well-known companies with 0 internships: %s' % (len(_gap), ', '.join(_gap[:80])))
+except Exception as e:
+    print('coverage check failed', e)
+
 # ---------- AI Rating (see rating.py) ----------
 from rating import estimate_brand, rating as _rating
 _n = collections.Counter(r[0] for r in L)
