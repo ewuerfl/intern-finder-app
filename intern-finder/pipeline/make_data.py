@@ -103,6 +103,15 @@ for co, us in urls.items():
     if dm:
         domains[co] = dm
 
+# Hand corrections for postings whose source lists the wrong places (loc_fixes.tsv: url <tab> place|place|...)
+if os.path.exists('loc_fixes.tsv'):
+    _fix = {}
+    for line in open('loc_fixes.tsv'):
+        if line.startswith('#') or '\t' not in line: continue
+        u, locs = line.rstrip('\n').split('\t', 1); _fix[u.strip()] = [x.strip() for x in locs.split('|') if x.strip()]
+    for r in L:
+        if r[8] in _fix: r[4] = _fix[r[8]]
+
 # Keep the first-seen date for postings we already had, so dates don't drift between runs
 OUT = '../public/data.json'
 prev = {}

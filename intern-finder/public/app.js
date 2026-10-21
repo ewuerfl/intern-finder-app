@@ -296,7 +296,7 @@ const CITY_ST={'nyc':'NY','new york city':'NY','manhattan':'NY','brooklyn':'NY',
 const FOREIGN=/\b(canada|ontario|quebec|british columbia|alberta|united kingdom|england|scotland|wales|ireland|london|india|bangalore|bengaluru|hyderabad|pune|singapore|france|paris|germany|berlin|munich|netherlands|amsterdam|spain|madrid|italy|milan|switzerland|zurich|geneva|china|shanghai|beijing|shenzhen|hong kong|japan|tokyo|korea|seoul|taiwan|taipei|australia|sydney|melbourne|new zealand|mexico city|brazil|israel|tel aviv|poland|sweden|denmark|finland|norway|belgium|austria|vienna, austria|portugal|lisbon|dublin|toronto|vancouver|montreal|ottawa|waterloo|calgary|edmonton|winnipeg|halifax|mississauga|malaysia|kuala lumpur|thailand|vietnam|philippines|indonesia|jakarta|uae|dubai|luxembourg|brussels|brno|czech|peru|colombia|bogota|eindhoven|mallorca|sgp|chile|argentina|costa rica|egypt|south africa|nigeria|kenya|turkey|istanbul|greece|hungary|budapest|romania|bucharest|prague|warsaw|krakow|stockholm|copenhagen|oslo|helsinki|edinburgh|manchester|cambridge, uk|oxford, uk|belfast|cork|galway)\b/i;
 const FOREIGN_CODE=/(,|\s|-)\s*(UK|GB|ON|BC|QC|AB|SK|MB|NS|IE|SG|IN, India|DE|FR|NL|ES|IT|CH|CN|JP|KR|TW|AU|NZ|MX|BR|IL|PL|SE|HK|MY|TH|VN|PH)\s*$/;
 function locState(l){
-  const t=l.replace(/\((\+\d+|headquarters|hq|hybrid|on-?site)\)/ig,'').trim();if(!t)return null;
+  const t=l.replace(/\((\+\d+|headquarters|hq|hybrid|on-?site)\)/ig,'').replace(/\s*\+\s*\d+\s*(more)?\s*$/i,'').trim();if(!t)return null;
   if(/\b(AB|BC|ON|QC|MB|SK|NS|NB|NL|PE)\s*,\s*CA(N|NADA)?\b/.test(t))return 'X';
   const lead=t.match(/^([A-Z]{2})[\s-]+[A-Z][a-z]/);if(lead&&STATES[lead[1]])return lead[1];
   if(/\bdistrict of columbia\b|washington,?\s*d\.?c\b/i.test(t))return 'DC';
@@ -344,7 +344,8 @@ function termOk(x){
 }
 function sideOk(x){
   if(state.remote&&!x.locs.some(l=>/remote/i.test(l)))return false;
-  if(state.usonly&&![...x.st].some(c=>c!=='X'))return false;
+  // U.S. only: keep a job if any of its locations is in the U.S., or if it lists more places than it names ("+3", "Multiple")
+  if(state.usonly&&![...x.st].some(c=>c!=='X')&&!x.locs.some(l=>/\+\s*\d+|^multiple|^\d+ (more )?locations?$|various/i.test(l||'')))return false;
   if(state.loc){if(state.loc==='REMOTE'){if(!x.locs.some(l=>/remote/i.test(l)))return false}
     else if(state.loc==='X'){if(!x.st.has('X'))return false}
     else if(!x.st.has(state.loc))return false}
