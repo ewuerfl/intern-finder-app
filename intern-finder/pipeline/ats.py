@@ -466,29 +466,46 @@ def wpcareers(host, co):
         yield co, title, loc, u, NOW - 7 * 86400
 
 def meta(_, co):
-    # metacareers.com: the search page carries its results as embedded JSON; fall back to the sitemap
+    # metacareers.com: try the search page's embedded results; also report what the sitemap offers
     import html as _h
-    H = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36', 'Accept': 'text/html', 'Accept-Language': 'en-US'}
+    H = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'Sec-Fetch-Mode': 'navigate'}
     def fetch(u):
         with urllib.request.urlopen(urllib.request.Request(u, headers=H), timeout=25) as r:
             return r.read().decode('utf-8', 'replace')
-    seen = set(); found = 0
-    for q in ('intern', 'internship', 'university grad'):
-        try: pg = fetch(f'https://www.metacareers.com/jobs?q={urllib.parse.quote(q)}&roles[0]=Internship')
+    seen = set()
+    for path in ('/jobs?q=intern', '/jobs/?q=intern&roles%5B0%5D=Internship', '/jobs/?roles%5B0%5D=Internship', '/jobsearch?q=intern', '/jobs'):
+        try:
+            pg = fetch('https://www.metacareers.com' + path)
         except Exception as e:
-            print(f'::notice title=META::search {q} failed {type(e).__name__} {getattr(e,"code","")}', flush=True); continue
+            body = ''
+            try: body = e.read()[:150].decode('utf-8', 'replace')
+            except Exception: pass
+            print(f'::notice title=META::{path} -> {type(e).__name__} {getattr(e,"code","")} {body!r}', flush=True); continue
         pg2 = pg.replace('\\"', '"').replace('\\/', '/')
-        for m in re.finditer(r'"id":"(\d{6,})","title":"([^"]{4,160})"(.{0,800}?)"locations":\[([^\]]*)\]', pg2):
-            jid, title, _, locs = m.groups()
+        ids = set(re.findall(r'/jobs/(\d{6,})', pg2))
+        n0 = len(seen)
+        for m in re.finditer(r'"id":"(\d{6,})","title":"([^"]{4,160})"', pg2):
+            jid, title = m.groups()
             if jid in seen: continue
-            seen.add(jid); found += 1
-            loc = '; '.join(re.findall(r'"([^"]+)"', locs))
+            seen.add(jid)
+            blk = pg2[m.end():m.end() + 1500]
+            l = re.search(r'"locations":\[([^\]]*)\]', blk)
+            loc = '; '.join(re.findall(r'"([^"]+)"', l.group(1))) if l else ''
             yield 'Meta', _h.unescape(title), loc, f'https://www.metacareers.com/jobs/{jid}/', NOW - 7 * 86400
-        for jid, title in re.findall(r'href="/jobs/(\d{6,})/?"[^>]*>(?:<[^>]+>)*([^<]{4,160})<', pg):
-            if jid in seen: continue
-            seen.add(jid); found += 1
-            yield 'Meta', _h.unescape(title.strip()), '', f'https://www.metacareers.com/jobs/{jid}/', NOW - 7 * 86400
-        print(f'::notice title=META::search {q}: page {len(pg)} chars, {found} jobs so far', flush=True)
+        print(f'::notice title=META::{path} ok {len(pg)} chars, {len(ids)} job ids, {len(seen) - n0} with titles; start={pg[:120]!r}', flush=True)
+    try:
+        rb = fetch('https://www.metacareers.com/robots.txt')
+        sms = re.findall(r'(?im)^sitemap:\s*(\S+)', rb)
+        print(f'::notice title=META::robots sitemaps: {sms[:5]}', flush=True)
+        for sm in sms[:3]:
+            try:
+                x = fetch(sm); locs = re.findall(r'<loc>([^<]+)</loc>', x)
+                print(f'::notice title=META::sitemap {sm} -> {len(locs)} locs e.g. {locs[:3]}', flush=True)
+            except Exception as e:
+                print(f'::notice title=META::sitemap {sm} failed {type(e).__name__} {getattr(e,"code","")}', flush=True)
+    except Exception as e:
+        print(f'::notice title=META::robots failed {type(e).__name__} {getattr(e,"code","")}', flush=True)
 
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
