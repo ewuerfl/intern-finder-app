@@ -455,7 +455,7 @@ function card(x,m){
   const now=Date.now()/1000;
   let host='';try{host=new URL(x.url).hostname.replace(/^www\./,'')}catch(e){}
   const loc=x.locs.length?(x.locs.length>2?x.locs.slice(0,2).join(' · ')+` +${x.locs.length-2}`:x.locs.join(' · ')):'Location not listed';
-  const fresh=!x.prog&&now-x.t<3*86400;
+  const fresh=!x.prog&&!x.closed&&now-x.t<3*86400;
   const term=x.prog&&x.terms.length>2?'Several terms':x.terms.join(', ');
   const tags=skills(x).map(s=>`<span class="tag skill">${esc(s)}</span>`).join('')
     +(x.locs.some(l=>/remote/i.test(l))?'<span class="tag good">Remote</span>':'')
