@@ -180,8 +180,15 @@ print('company-site postings added',nh)
 # ---- internships pulled live from company job boards (ats.py) ----
 na=0
 if os.path.exists('ats.json'):
+  rowby={r[8].split('?')[0].rstrip('/'):r for r in out}
   for co,ti,loc,terms,url,posted in json.load(open('ats.json')):
     key=(co.lower(),ti.lower()+'|'+loc.lower()); u0=url.split('?')[0].rstrip('/')
+    if u0 in rowby and not re.search(r'\b(spring|summer|fall|autumn|winter)\b',ti,re.I):
+      # same posting already came from an internship list: lists sometimes tag the wrong season
+      # (e.g. "Fall 2026" for a 2027 internship), so keep the list's seasons and add the posting's own
+      r0=rowby[u0]
+      for t in terms:
+        if t not in r0[3]: r0[3]=list(r0[3])+[t]
     if key in seen or u0 in urls: continue
     seen.add(key); urls.add(u0)
     m=re.match(r'^([A-Z][A-Za-z .]+) - ',ti)
