@@ -471,7 +471,8 @@ def meta(_, co):
     import html as _h, os
     from concurrent.futures import ThreadPoolExecutor as _TPE
     H = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9'}
+         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9',
+         'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Site': 'none', 'Sec-Fetch-Dest': 'document', 'Upgrade-Insecure-Requests': '1'}   # Meta answers 400 without these
     def fetch(u):
         with urllib.request.urlopen(urllib.request.Request(u, headers=H), timeout=25) as r:
             return r.read().decode('utf-8', 'replace')
