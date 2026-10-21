@@ -419,9 +419,49 @@ def page(url, co):
         import html as _h
         yield co, _h.unescape(re.sub(r'<[^>]+>', '', t.group(1))).strip(), '', url, NOW - 7 * 86400
 
+def wpcareers(host, co):
+    # WordPress career sites with "/careers/details/<slug>/" pages (Citadel, Citadel Securities): read the sitemap
+    import html as _h
+    def fetch(u):
+        req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36'})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            return r.read().decode('utf-8', 'replace')
+    maps, urls = [], set()
+    for root in ('/wp-sitemap.xml', '/sitemap_index.xml', '/sitemap.xml'):
+        try: maps.append(fetch(f'https://{host}{root}'))
+        except Exception: pass
+    subs = set()
+    for m in maps:
+        for loc in re.findall(r'<loc>\s*([^<]+?)\s*</loc>', m):
+            if loc.endswith('.xml'): subs.add(loc)
+            elif '/careers/details/' in loc: urls.add(loc)
+    for sm in sorted(subs):
+        if not re.search(r'career|job|opportunit|posting|position|page|post', sm, re.I): continue
+        try:
+            for loc in re.findall(r'<loc>\s*([^<]+?)\s*</loc>', fetch(sm)):
+                if '/careers/details/' in loc: urls.add(loc)
+        except Exception: pass
+    for u in sorted(urls):
+        slug = u.rstrip('/').rsplit('/', 1)[-1]
+        if not re.search(r'intern|co-op|coop|summer|student', slug): continue
+        title = slug.replace('-', ' ').title(); loc = ''
+        try:
+            pg = fetch(u)
+            t = re.search(r'<h1[^>]*>(.*?)</h1>', pg, re.S) or re.search(r'<title>([^<|–-]+)', pg)
+            if t: title = _h.unescape(re.sub(r'<[^>]+>', '', t.group(1))).strip()
+            l = re.search(r'(?:Location|location)s?\s*</[^>]+>\s*(?:<[^>]+>\s*)*([A-Z][^<]{2,120})<', pg)
+            if l: loc = _h.unescape(l.group(1)).strip()
+        except urllib.error.HTTPError as e:
+            if e.code in (404, 410): continue
+        except Exception:
+            pass
+        if not loc:
+            loc = 'United States' if re.search(r'-us$|\(us\)', slug + title.lower()) else ''
+        yield co, title, loc, u, NOW - 7 * 86400
+
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time
@@ -489,7 +529,7 @@ def main():
         return sweep(b)
     # slow, many-page boards first so they don't run into the time limit
     # quick one-request boards first, then the slow many-page career sites
-    order = {'wd': 5, 'rmk': 4, 'radancy': 4, 'amazon': 3, 'apple': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
+    order = {'wd': 5, 'rmk': 4, 'radancy': 4, 'wpcareers': 4, 'amazon': 3, 'apple': 3, 'jibe': 3, 'phenom': 3, 'eightfold': 3, 'oracle': 4, 'icims': 4}
     boards.sort(key=lambda b: order.get(b[0], 0))
     with ThreadPoolExecutor(max_workers=48) as ex:
         for board, (rows, err, transient) in zip(boards, ex.map(run, boards)):

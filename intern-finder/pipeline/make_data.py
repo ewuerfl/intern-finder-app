@@ -231,6 +231,11 @@ _prevdeg = {r[8]: r[5] for r in prev.get('listings', []) if r[5]} if prev else {
 for r in L:
     if not r[5] and r[8] in _prevdeg: r[5] = _prevdeg[r[8]]
 _nodeg = set(prev.get('nodeg') or []) if prev else set()
+# Workday lists jobs at several sites as "3 Locations": reuse the real places read on an earlier run
+_MULTI = re.compile(r'^\d+ locations?$', re.I)
+_prevloc = {r[8]: r[4] for r in prev.get('listings', []) if r[4] and not any(_MULTI.match(l or '') for l in r[4])} if prev else {}
+for r in L:
+    if any(_MULTI.match(l or '') for l in r[4]) and r[8] in _prevloc: r[4] = _prevloc[r[8]]
 def _degs(text):
     t = re.sub(r'<[^>]+>', ' ', text or '')
     out = []
@@ -240,7 +245,10 @@ def _degs(text):
     # "pursuing a Master's or PhD": only grad degrees mentioned as what you must be studying
     return out
 if os.environ.get('GITHUB_ACTIONS'):
-    todo = [r[8] for r in L if not r[5] and r[8] not in _nodeg and 'myworkdayjobs.com' in r[8] and '/job/' in r[8]][:2500]
+    MULTI = _MULTI
+    need_loc = {r[8] for r in L if 'myworkdayjobs.com' in r[8] and any(MULTI.match(l or '') for l in r[4])}
+    todo = sorted({r[8] for r in L if 'myworkdayjobs.com' in r[8] and '/job/' in r[8] and ((not r[5] and r[8] not in _nodeg) or r[8] in need_loc)},
+                  key=lambda u: u not in need_loc)[:3000]
     def _wd_desc(u):
         try:
             p = urllib.parse.urlparse(u); h = p.hostname
@@ -249,7 +257,14 @@ if os.environ.get('GITHUB_ACTIONS'):
             site, rest = parts[0], p.path.split('/job/', 1)[1]
             with WD_CHECK:
                 st, _, body = _get(f'https://{h}/wday/cxs/{h.split(".")[0]}/{site}/job/{rest}', 'application/json')
-            return u, (json.loads(body).get('jobPostingInfo') or {}).get('jobDescription', '')
+            info = json.loads(body).get('jobPostingInfo') or {}
+            if u in need_loc:
+                locs = [info.get('location')] + list(info.get('additionalLocations') or [])
+                locs = [l for l in locs if l]
+                if locs:
+                    for r in L:
+                        if r[8] == u: r[4] = locs
+            return u, info.get('jobDescription', '')
         except Exception:
             return u, None
     t0 = _time.time(); got = 0
@@ -257,6 +272,7 @@ if os.environ.get('GITHUB_ACTIONS'):
         for u, desc in ex.map(lambda u: (u, None) if _time.time() - t0 > 200 else _wd_desc(u), todo):
             if desc is None: continue
             dg = _degs(desc); got += 1
+            if not any(r[8] == u and not r[5] for r in L): continue
             if dg:
                 for r in L:
                     if r[8] == u: r[5] = dg
