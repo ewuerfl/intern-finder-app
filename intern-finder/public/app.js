@@ -668,7 +668,7 @@ function _lev(a,b){const d=Array.from({length:a.length+1},(_,i)=>[i]);for(let j=
 let _cos=null;
 function suggest(){
   const saved=JSON.stringify(state),restore=()=>{delete state._any;Object.assign(state,JSON.parse(saved));_kwqFor=null};
-  const sortRel=a=>a.sort((x,y)=>((y.rel||0)-(x.rel||0))||(y.rt-x.rt)*0.6+(y.t-x.t)/864000);
+  const sortRel=a=>a.sort((x,y)=>((y.rel||0)-(x.rel||0))||(y.rt-x.rt)*0.6+(FRESH(y)-FRESH(x)));
   const tryIt=(why,change)=>{change();_kwqFor=null;const l=L.filter(matches);restore();return l.length?{why,list:sortRel(l)}:null};
   const term=[state.season,state.year].filter(Boolean).join(' ');
   const q=state.kw?KWQ():{states:[],remote:false,words:[]};
@@ -691,6 +691,8 @@ function suggest(){
   for(const [why,ch] of steps){const r=tryIt(why,ch);if(r)return r}
   return null;
 }
+// Recency only counts for ~6 weeks: after that a posting's age doesn't push it down (big pools stay open for months)
+function FRESH(x){const d=(Date.now()/1000-x.t)/86400;return x.prog?0:-Math.min(45,Math.max(0,d))/10}
 function render(){
   shown=0;$('list').innerHTML='';
   if(view==='apps'){renderApps();return}
@@ -700,7 +702,7 @@ function render(){
     $('list').innerHTML=matchList.map(m=>card(L[m.id],m)).join('');$('more').hidden=true;return;
   }
   results=L.filter(matches);
-  if(state.sort==='rel')results.sort((a,b)=>((b.rel||0)-(a.rel||0))||(b.rt-a.rt)*0.6+(b.t-a.t)/864000);else if(state.sort==='co')results.sort((a,b)=>a.co.localeCompare(b.co)||b.t-a.t);else if(state.sort==='rt')results.sort((a,b)=>b.rt-a.rt||b.t-a.t);else results.sort((a,b)=>b.t-a.t);
+  if(state.sort==='rel')results.sort((a,b)=>((b.rel||0)-(a.rel||0))||(b.rt-a.rt)*0.6+(FRESH(b)-FRESH(a)));else if(state.sort==='co')results.sort((a,b)=>a.co.localeCompare(b.co)||b.t-a.t);else if(state.sort==='rt')results.sort((a,b)=>b.rt-a.rt||b.t-a.t);else results.sort((a,b)=>b.t-a.t);
   const what=[state.field?CAT[state.field]:state.major?state.major+' ('+MAJ[state.major].f.map(c=>CAT[c]).join(', ')+')':'All fields',[state.season,state.year].filter(Boolean).join(' ')||'any term'].join(' · ');
   $('count').innerHTML=(newOnly?`<b>${results.length.toLocaleString()}</b> new${f5New?' Fortune 500 jobs':''} since the last update <button type="button" class="chip" id="newOff">Show all jobs ×</button>`:`<b>${results.length.toLocaleString()}</b> internships · ${esc(what)}${state.kw?' · “'+esc(state.kw)+'”':''}`);
   if(!results.length&&!newOnly){const sg=suggest();
