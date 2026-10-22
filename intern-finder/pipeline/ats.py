@@ -76,6 +76,14 @@ def ashby(org, co):
     for x in j.get('jobs', []):
         yield co, x.get('title', ''), x.get('location', ''), x.get('jobUrl', ''), ts(x.get('publishedAt'))
 
+def gem(slug, co):
+    # Gem job boards (jobs.gem.com/<slug>), e.g. Groq
+    j = get(f'https://api.gem.com/job_board/v0/{slug}/job_posts/')
+    for x in j if isinstance(j, list) else []:
+        loc = x.get('location')
+        loc = loc.get('name', '') if isinstance(loc, dict) else (loc or '; '.join(o.get('name', '') for o in (x.get('offices') or []) if isinstance(o, dict)))
+        yield co, x.get('title', ''), loc, x.get('absolute_url', ''), ts(x.get('first_published_at') or x.get('created_at'))
+
 def wd(spec, co):
     host, tenant, site = spec.split('|')
     seen = set()
@@ -563,7 +571,7 @@ def meta(_, co):
 
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers, 'meta': meta}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers, 'meta': meta, 'gem': gem}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time

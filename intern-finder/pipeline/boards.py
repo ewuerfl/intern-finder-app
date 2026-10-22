@@ -9,6 +9,7 @@ def board_of(url):
         if len(parts) >= 2 and parts[1] == 'jobs' and parts[0] != 'embed': return ('gh', parts[0])
     if h == 'jobs.lever.co' and parts: return ('lever', parts[0])
     if h == 'jobs.ashbyhq.com' and parts: return ('ashby', parts[0])
+    if h == 'jobs.gem.com' and parts: return ('gem', parts[0])
     if h.endswith('myworkdayjobs.com'):
         if parts and re.match(r'^[a-z]{2}-[A-Z]{2}$', parts[0]): parts = parts[1:]
         if parts and parts[0] not in ('job', 'details', 'wday', 'jobs'): return ('wd', f"{h}|{h.split('.')[0]}|{parts[0]}")
