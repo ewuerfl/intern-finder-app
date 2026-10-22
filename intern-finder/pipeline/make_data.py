@@ -55,6 +55,7 @@ L[:] = _keep
 def _job_key(u):
     p = urllib.parse.urlparse(u.strip()); h = (p.hostname or '').lower().replace('www.', '')
     q = urllib.parse.parse_qs(p.query)
+    if 'pid' in q and re.search(r'\d{6,}', q['pid'][0]): return (h, re.sub(r'\D', '', q['pid'][0]))
     for k in ('gh_jid', 'jobId', 'jobid', 'job_id', 'token', 'id', 'jid'):
         if k in q and re.search(r'\d{4,}', q[k][0]):
             return (h.split('.')[-2] if '.' in h else h, re.sub(r'\D', '', q[k][0]))
@@ -219,6 +220,8 @@ if os.environ.get('GITHUB_ACTIONS'):
     print('::notice title=Link check unclear::' + '; '.join(f'{k} x{v}' for k, v in why.most_common(10)))
     print('::notice title=Link check::' + msg + (' e.g. ' + ' '.join(samples) if samples else ''))
 
+_efc = collections.Counter(k[0] for k in live)
+_ef_hosts = {h for h, n in _efc.items() if n >= 5 and (h.endswith('eightfold.ai') or h == 'apply.careers.microsoft.com')}
 before = len(L); counts = collections.Counter()
 keep = []
 for r in L:
@@ -227,6 +230,8 @@ for r in L:
     if JUNK.search(r[1]): counts['junk'] += 1; continue
     if _past(r[3]): counts['season over'] += 1; continue
     if r[8] in dead: counts['dead link'] += 1; continue
+    # Eightfold career sites (Microsoft, Qualcomm, ...) are swept in full: a list posting their sweep no longer returns has closed
+    if r[10] != 'p' and _job_key(r[8])[0] in _ef_hosts and _job_key(r[8]) not in live: counts['closed on Eightfold site'] += 1; continue
     if r[10] != 'p' and _job_key(r[8]) not in live and not FEED.search(r[8]) and r[7] and _now - r[7] > 120 * 86400: counts['stale list entry'] += 1; continue
     r[15] = 'u' if UNPAID.search(text) else ''
     keep.append(r)

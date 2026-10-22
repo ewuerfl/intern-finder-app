@@ -195,7 +195,7 @@ if os.path.exists('ats.json'):
     # drop a leading 'City - ' so place names don't decide the field, but keep it when it's the job itself ("AI Solution Architect - Undergraduate Intern")
     c=(m and classify(ti[m.end():],'')) or classify(ti,'Business')
     if re.search(r'\b(tax|audit|assurance|accounting|cpa|actuarial)\b',ti,re.I): c='Finance'
-    out.append([co,ti,[c],terms,[loc],[],'',int(posted),url,'','','']); na+=1
+    out.append([co,ti,[c],terms,[l.strip() for l in loc.split(';') if l.strip()] or [loc],[],'',int(posted),url,'','','']); na+=1
 print('job-board postings added',na)
 for r in out:
   while len(r)<12: r.append('')

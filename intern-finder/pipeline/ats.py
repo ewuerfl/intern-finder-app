@@ -170,21 +170,55 @@ def jibe(host, co):
                 yield co, x.get('title', ''), loc, f"https://{host}/careers-home/jobs/{x.get('slug') or rid}?lang=en-us", ts(x.get('posted_date') or x.get('create_date'))
             if len(rows) < 100: break
 
-def eightfold(spec, co):
-    # Eightfold career sites, e.g. qualcomm.eightfold.ai (spec "host|domain")
-    host, dom = spec.split('|')
-    seen = set()
-    for q in ('intern', 'co-op'):
-        for start in range(0, 500, 10):
+def _ef_session(host):
+    # Eightfold "PCSX" sites (e.g. apply.careers.microsoft.com) only answer a browser session: load the page for its cookies first
+    import http.cookiejar
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+    try:
+        op.open(urllib.request.Request(f'https://{host}/careers?query=intern', headers={'User-Agent': ua, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9', 'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1', 'Upgrade-Insecure-Requests': '1'}), timeout=20).read()
+    except Exception:
+        pass
+    hdr = {'User-Agent': ua, 'Accept': 'application/json, text/plain, */*', 'Accept-Language': 'en-US,en;q=0.9', 'Referer': f'https://{host}/careers?query=intern',
+           'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin', 'X-Requested-With': 'XMLHttpRequest'}
+    def fetch(url):
+        for wait in (0, 4, 10, 20):
+            time.sleep(wait)
             try:
-                j = get(f'https://{host}/api/apply/v2/jobs?domain={dom}&query={q}&start={start}&num=10&sort_by=relevance')
-                rows = j.get('positions') or []
-            except urllib.error.HTTPError:
+                with op.open(urllib.request.Request(url, headers=hdr), timeout=20) as r:
+                    return json.loads(r.read().decode('utf-8', 'replace'))
+            except urllib.error.HTTPError as e:
+                if e.code != 429: raise
+        raise urllib.error.HTTPError(url, 429, 'rate limited', None, None)
+    return fetch
+
+def _ef_place(x):
+    locs = x.get('standardizedLocations') or x.get('locations') or [x.get('location') or '']
+    return '; '.join(re.sub(r', US$', '', l) for l in locs if l)
+
+def eightfold(spec, co):
+    # Eightfold career sites, e.g. qualcomm.eightfold.ai or apply.careers.microsoft.com (spec "host|domain")
+    host, dom = spec.split('|')
+    seen = set(); pcsx = None
+    for q in ('intern', 'co-op'):
+        for start in range(0, 600, 10):
+            rows = None
+            if pcsx is None or pcsx is False:
+                try:
+                    j = get(f'https://{host}/api/apply/v2/jobs?domain={dom}&query={q}&start={start}&num=10&sort_by=relevance')
+                    rows = j.get('positions') or []; pcsx = False
+                except urllib.error.HTTPError:
+                    if pcsx is False: raise
+                    pcsx = _ef_session(host)
+            if rows is None:
                 # newer Eightfold sites ("PCSX")
-                j = get(f'https://{host}/api/pcsx/search?domain={dom}&query={q}&location=&start={start}&sort_by=relevance')
-                rows = [{'id': x.get('id'), 'name': x.get('name'), 'locations': x.get('locations') or [x.get('location') or ''],
+                j = pcsx(f'https://{host}/api/pcsx/search?domain={dom}&query={q}&location=&start={start}&sort_by=relevance')
+                rows = [{'id': x.get('id'), 'name': x.get('name'), 'location': _ef_place(x),
                          'canonicalPositionUrl': ('https://' + host + x['positionUrl']) if str(x.get('positionUrl', '')).startswith('/') else x.get('positionUrl'),
                          't_create': x.get('postedTs') or x.get('creationTs')} for x in ((j.get('data') or {}).get('positions') or [])]
+                time.sleep(0.7)
             for x in rows:
                 if x.get('id') in seen: continue
                 seen.add(x.get('id'))
