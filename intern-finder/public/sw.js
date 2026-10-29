@@ -1,5 +1,5 @@
 // Offline support: the app shell is cached; listings load fresh when online and fall back to the last copy offline.
-const SHELL = 'if-shell-v5', DATA = 'if-data', ASSETS = 'if-assets';
+const SHELL = 'if-shell-v6', DATA = 'if-data', ASSETS = 'if-assets';
 const FILES = ['./', 'index.html', 'app.js', 'config.js', 'manifest.webmanifest', 'vendor/supabase-2.117.2.js', 'icons/icon-192.png', 'icons/favicon-32.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

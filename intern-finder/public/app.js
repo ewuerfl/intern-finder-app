@@ -272,7 +272,7 @@ const MAJORS=[
 const CAT=Object.fromEntries(FIELDS.flatMap(g=>g[1]));
 const SUM=window.SUMMARIES||{};
 const L=window.LISTINGS.map((r,i)=>({id:i,co:r[0],title:r[1],cats:r[2],cat:r[2][0],terms:r[3],locs:r[4],deg:r[5],sp:r[6],t:r[7],url:r[8],pay:r[9]||'',prog:r[10]==='p',about:r[11]||'',rt:r[12]||0,brand:r[13]||0,hr:r[14]||null,unpaid:r[15]==='u',f500:!!(window.F500||{})[r[0]],sum:SUM[r[8]]||null,
-  hay:(r[0]+' '+r[1]+' '+r[4].join(' ')).toLowerCase()}));
+  hay:(r[0]+' '+r[1]+' '+r[4].join(' ')).toLowerCase(),coc:r[0].toLowerCase().replace(/[^a-z0-9]/g,'')}));
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const counts={};L.forEach(x=>x.cats.forEach(c=>counts[c]=(counts[c]||0)+1));
@@ -416,7 +416,10 @@ function matches(x){
   if(state.kw){const q=KWQ();
     if(q.states.length&&!q.states.some(c=>x.st.has(c)))return false;
     if(q.remote&&!x.locs.some(l=>/remote/i.test(l)))return false;
-    if(!q.words.every(w=>x.hay.includes(w)))return false}
+    // forgiving: "foundry" finds "foundries", and "global foundries" finds GlobalFoundries
+    const stem=w=>w.length>4?w.replace(/(ies|es|s|y)$/,''):w;
+    const qj=stem(q.words.join('').replace(/[^a-z0-9]/g,''));
+    if(!(q.words.every(w=>x.hay.includes(w)||x.hay.includes(stem(w)))||(qj.length>=4&&x.coc.includes(qj))))return false}
   return sideOk(x);
 }
 const HUES=[212,262,188,330,24,150,280,4,48,120,232,350,170,300,36,200];
