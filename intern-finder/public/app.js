@@ -419,7 +419,10 @@ function matches(x){
     // forgiving: "foundry" finds "foundries", and "global foundries" finds GlobalFoundries
     const stem=w=>w.length>4?w.replace(/(ies|es|s|y)$/,''):w;
     const qj=stem(q.words.join('').replace(/[^a-z0-9]/g,''));
-    if(!(q.words.every(w=>x.hay.includes(w)||x.hay.includes(stem(w)))||(qj.length>=4&&x.coc.includes(qj))))return false}
+    if(!(q.words.every(w=>x.hay.includes(w)||x.hay.includes(stem(w)))||(qj.length>=4&&x.coc.includes(qj))))return false
+    // company-name hits come first: exact name, then a name starting with the search
+    x.km=!qj?0:x.coc===qj?3:x.coc.startsWith(qj)?2:0}
+  else x.km=0;
   return sideOk(x);
 }
 const HUES=[212,262,188,330,24,150,280,4,48,120,232,350,170,300,36,200];
@@ -705,7 +708,8 @@ function render(){
     $('list').innerHTML=matchList.map(m=>card(L[m.id],m)).join('');$('more').hidden=true;return;
   }
   results=L.filter(matches);
-  if(state.sort==='rel')results.sort((a,b)=>((b.rel||0)-(a.rel||0))||(b.rt-a.rt)*0.6+(FRESH(b)-FRESH(a)));else if(state.sort==='co')results.sort((a,b)=>a.co.localeCompare(b.co)||b.t-a.t);else if(state.sort==='rt')results.sort((a,b)=>b.rt-a.rt||b.t-a.t);else results.sort((a,b)=>b.t-a.t);
+  if(state.sort==='rel')results.sort((a,b)=>((b.km||0)-(a.km||0))||((b.rel||0)-(a.rel||0))||(b.rt-a.rt)*0.6+(FRESH(b)-FRESH(a)));else if(state.sort==='co')results.sort((a,b)=>a.co.localeCompare(b.co)||b.t-a.t);else if(state.sort==='rt')results.sort((a,b)=>b.rt-a.rt||b.t-a.t);else results.sort((a,b)=>b.t-a.t);
+  if(state.kw&&state.sort!=='rel')results.sort((a,b)=>(b.km||0)-(a.km||0));   // company-name hits first in every sort
   const what=[state.field?CAT[state.field]:state.major?state.major+' ('+MAJ[state.major].f.map(c=>CAT[c]).join(', ')+')':'All fields',[state.season,state.year].filter(Boolean).join(' ')||'any term'].join(' · ');
   $('count').innerHTML=(newOnly?`<b>${results.length.toLocaleString()}</b> new${f5New?' Fortune 500 jobs':''} since the last update <button type="button" class="chip" id="newOff">Show all jobs ×</button>`:`<b>${results.length.toLocaleString()}</b> internships · ${esc(what)}${state.kw?' · “'+esc(state.kw)+'”':''}`);
   if(!results.length&&!newOnly){const sg=suggest();
