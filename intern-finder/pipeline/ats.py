@@ -507,6 +507,14 @@ def wpcareers(host, co):
         if region and not re.search(r'\((US|Europe|Asia|Australia|Canada)\)', title): title += f' ({ {"United States": "US"}.get(region, region)})'
         yield co, title, loc, u, NOW - 7 * 86400
 
+def browser(name, co):
+    # sites read by browser_jobs.py in headless Chromium (they block plain requests), e.g. IBM
+    import os
+    if not os.path.exists('browser_jobs.json'): return
+    for r in json.load(open('browser_jobs.json')):
+        if r[0].lower() == name.lower():
+            yield co, r[1], r[2], r[3], r[4]
+
 def meta(_, co):
     # metacareers.com: the search pages are drawn in the browser, but its jobs sitemap lists every posting.
     # Read each posting page once (title, places) and remember it in meta_cache.json, so later runs only read new ones.
@@ -571,7 +579,7 @@ def meta(_, co):
 
 KINDS = {'gh': gh, 'lever': lever, 'ashby': ashby, 'wd': wd, 'sr': sr, 'bamboo': bamboo,
          'workable': workable, 'recruitee': recruitee, 'breezy': breezy, 'rippling': rippling, 'oracle': oracle,
-         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers, 'meta': meta, 'gem': gem}
+         'jibe': jibe, 'eightfold': eightfold, 'phenom': phenom, 'amazon': amazon, 'icims': icims, 'rmk': rmk, 'apple': apple, 'radancy': radancy, 'page': page, 'wpcareers': wpcareers, 'meta': meta, 'gem': gem, 'browser': browser}
 
 import threading
 WD_SLOTS = threading.Semaphore(12)   # Workday rate-limits hard; read at most 6 Workday boards at a time
