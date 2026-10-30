@@ -5,4 +5,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: pip install playwright==1.47.0 && python -m playwright install --with-deps chromium
       - run: cd intern-finder/pipeline && python3 debug.py
