@@ -1,4 +1,9 @@
 import json,re,glob,collections,urllib.parse as u,time,datetime
+def ukey(url):
+  # a posting's URL without tracking parameters; keeps the job-id parameter (…/JobDetail?jobId=123, …/careers?pid=456)
+  base,_,q=url.partition('?')
+  m=re.search(r'(?:^|&)((?:jobid|job_id|jobId|pid|gh_jid|id|jid|token)=[^&#]+)',q)
+  return base.rstrip('/')+('?'+m.group(1) if m else '')
 RULES=[
  ('Mechanical',r'guidance, navigation|\bgnc\b'),
  ('Software',r'computer science'),
@@ -88,11 +93,11 @@ for f in glob.glob('mehek-builds_Summer2027-Internships/lists/*.md'):
 
 # ---- extra GitHub lists ----
 ex=json.load(open('extra.json'))
-urls={r[8].split('?')[0].rstrip('/') for r in out}
+urls={ukey(r[8]) for r in out}
 n2=0
 for x in ex:
   co,ti=x['co'].strip(),re.sub(r'[⏳🔒🛂🇺🇸]','',x['title']).strip()
-  k=(co.lower(),ti.lower()); u0=x['url'].split('?')[0].rstrip('/')
+  k=(co.lower(),ti.lower()); u0=ukey(x['url'])
   if k in seen or u0 in urls or not x['url'].startswith('http'): continue
   seen.add(k); urls.add(u0)
   tm=[f'{a.title()} {b}' for a,b in termre.findall(ti)]
@@ -114,7 +119,7 @@ except FileNotFoundError: ex2=[]
 n3=0
 for x in ex2:
   co,ti=x['co'].strip(),x['title'].strip()
-  k=(co.lower(),ti.lower()); u0=x['url'].split('?')[0].rstrip('/')
+  k=(co.lower(),ti.lower()); u0=ukey(x['url'])
   if k in seen or u0 in urls or not x['url'].startswith('http'): continue
   tm=[t for t in x.get('terms',[]) if OK.match(t)]
   if not tm:
@@ -169,7 +174,7 @@ for fn in ['hosp_postings.tsv','more_postings.tsv','raw_postings.tsv']:
   p=line.rstrip('\n').split('\t')
   if len(p)<6: continue
   co,ti,loc,term,url,cats=p
-  key=(co.lower(),ti.lower()+'|'+loc.lower()); u0=url.split('?')[0].rstrip('/')
+  key=(co.lower(),ti.lower()+'|'+loc.lower()); u0=ukey(url)
   if key in seen or u0 in urls: continue
   seen.add(key); urls.add(u0)
   if cats.startswith('AUTO:'):
@@ -180,9 +185,9 @@ print('company-site postings added',nh)
 # ---- internships pulled live from company job boards (ats.py) ----
 na=0
 if os.path.exists('ats.json'):
-  rowby={r[8].split('?')[0].rstrip('/'):r for r in out}
+  rowby={ukey(r[8]):r for r in out}
   for co,ti,loc,terms,url,posted in json.load(open('ats.json')):
-    key=(co.lower(),ti.lower()+'|'+loc.lower()); u0=url.split('?')[0].rstrip('/')
+    key=(co.lower(),ti.lower()+'|'+loc.lower()); u0=ukey(url)
     if u0 in rowby and not re.search(r'\b(spring|summer|fall|autumn|winter)\b',ti,re.I):
       # same posting already came from an internship list: lists sometimes tag the wrong season
       # (e.g. "Fall 2026" for a 2027 internship), so keep the list's seasons and add the posting's own
