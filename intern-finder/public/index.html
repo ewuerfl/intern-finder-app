@@ -487,7 +487,10 @@ body{margin:0}
 fetch('data.json').then(r=>{if(!r.ok)throw 0;return r.json()}).then(d=>{
   window.LISTINGS=d.listings;window.LISTINGS_ASOF=d.asof;window.ADDED_URLS=d.added||[];window.SUMMARIES=d.summaries;window.DOMAINS=d.domains;window.F500=d.f500||{};
   const s=document.createElement('script');s.src='app.js';document.body.appendChild(s);
-}).catch(()=>{document.getElementById('list').innerHTML='<div class="empty">Could not load internships. Check your connection and refresh.</div>'});
+}).catch(()=>{document.getElementById('list').innerHTML='<div class="empty">Could not load internships. Check your connection and <a href="" onclick="location.reload();return false">try again</a>.</div>'});
+// never leave a blank or stuck screen: if the listings haven't shown after 20s, offer a retry
+setTimeout(()=>{const l=document.getElementById('list');if(l&&/Loading internships/.test(l.textContent))l.innerHTML='<div class="empty">This is taking longer than usual. <a href="" onclick="location.reload();return false">Tap to retry</a>.</div>'},20000);
+window.addEventListener('error',e=>{if(e.target&&e.target.tagName==='SCRIPT'&&/app\.js/.test(e.target.src||'')){const l=document.getElementById('list');if(l)l.innerHTML='<div class="empty">Could not load the app. <a href="" onclick="location.reload();return false">Tap to retry</a>.</div>'}},true);
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 let deferred=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;document.getElementById('install').hidden=false});
